@@ -101,14 +101,23 @@ func classifyPull(haystack string) pullCause {
 			}
 		}
 	}
-	// Honest fallback: the pull failed, we could not tell why. Better than
-	// guessing "typo" and sending someone to check a tag that is perfectly fine.
+	// Honest fallback: the pull failed, we could not tell why. Better than guessing "typo" and
+	// sending someone to check a tag that is perfectly fine.
+	//
+	// The usual reason we cannot tell is not an unhelpful error — it is that the error is GONE.
+	// Kubernetes expires events after about an hour, and once a container settles into
+	// ImagePullBackOff its status message degrades to a bare "Back-off pulling image". Verified on
+	// a pod that had been failing for seven hours: the original "manifest unknown" event had aged
+	// out, so the precise cause was no longer recoverable from the API at all. Saying so, and
+	// saying how to get it back, beats implying the registry was vague.
 	return pullCause{
 		id:    "image.pull-failed",
-		title: "Image pull is failing for an unrecognised reason",
-		detail: "The container runtime could not pull the image, but the error did not match a " +
-			"known cause (missing tag, credentials, or rate limit). The raw message is in the " +
-			"evidence below.",
+		title: "Image pull is failing, and the reason has expired",
+		detail: "The container runtime cannot pull the image. The specific cause — a missing tag, " +
+			"refused credentials, or a rate limit — is no longer available: Kubernetes expires " +
+			"events after roughly an hour, and a container that has settled into ImagePullBackOff " +
+			"reports only a generic back-off message. Deleting the pod forces a fresh pull attempt " +
+			"and regenerates the detailed event, which is the fastest way to recover the real error.",
 	}
 }
 

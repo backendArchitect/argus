@@ -21,8 +21,10 @@ import (
 // costs more time than it saves. `healthy` is the strongest test here precisely
 // because it expects nothing at all.
 var fixtures = map[string][]string{
-	"oom-limit-too-low":  {"oomkill.limit-too-low"},
-	"image-pull-typo":    {"image.pull-not-found"},
+	"oom-limit-too-low": {"oomkill.limit-too-low"},
+	"image-pull-typo":   {"image.pull-not-found"},
+	// The same failure hours later, after Kubernetes expired the event that named the cause.
+	"image-pull-expired": {"image.pull-failed"},
 	"readiness-too-fast": {"probe.readiness-misconfigured", "endpoints.no-ready-backends"},
 	"endpoint-gap":       {"endpoints.selector-matches-nothing"},
 	"bad-rollout":        {"rollout.bad-template", "oomkill.limit-too-low"},

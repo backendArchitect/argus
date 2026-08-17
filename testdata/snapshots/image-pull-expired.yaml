@@ -1,0 +1,92 @@
+# Captured from a pod that had been in ImagePullBackOff for seven hours.
+#
+# The companion fixture image-pull-typo.yaml was captured minutes after the failure, while the
+# "manifest unknown" event was still present, so the detector can name the cause at 90% confidence.
+# This one is the same workload later: Kubernetes expired the event after ~1h and the container's
+# status degraded to a bare "Back-off pulling image", so the precise cause is no longer recoverable
+# from the API.
+#
+# Both states are worth pinning, because this is the one production spends most of its time in — a
+# detector that only works in the first hour would look fine in tests and useless in an incident.
+#
+# Expected: image.pull-failed at lower confidence, saying the reason expired and how to regenerate it.
+captured deployment/argus-broken/pull-typo from kind-argus-test in 10 apiserver calls (degraded: 1)
+degraded:
+- 'metrics: the server could not find the requested resource (get pods.metrics.k8s.io)'
+events:
+- count: 352
+  first_seen_seconds_ago: 5063
+  last_seen_seconds_ago: 241
+  message: Back-off pulling image "nginx:1.27-this-tag-does-not-exist"
+  object_count: 1
+  object_kind: Pod
+  object_name: pull-typo-7fd6c69fb-49lm5
+  reason: BackOff
+  type: Normal
+namespace: argus-broken
+nodes:
+- alloc_cpu: "16"
+  alloc_mem: 28358552Ki
+  name: argus-test-control-plane
+  ready: true
+pods:
+- containers:
+  - image: nginx:1.27-this-tag-does-not-exist
+    name: app
+    ready: false
+    request_cpu: 10m
+    request_mem: 16Mi
+    restart_count: 0
+    started: false
+    state:
+      message: Back-off pulling image "nginx:1.27-this-tag-does-not-exist"
+      reason: ImagePullBackOff
+      status: waiting
+  created_seconds_ago: 24210
+  labels:
+    app: pull-typo
+    pod-template-hash: 7fd6c69fb
+  name: pull-typo-7fd6c69fb-49lm5
+  node: argus-test-control-plane
+  owner_kind: ReplicaSet
+  owner_name: pull-typo-7fd6c69fb
+  phase: Pending
+  ready: false
+replicasets:
+- available: 0
+  created_seconds_ago: 24210
+  current: true
+  desired: 1
+  name: pull-typo-7fd6c69fb
+  ready: 0
+  revision: "1"
+  template:
+  - image: nginx:1.27-this-tag-does-not-exist
+    name: app
+    request_cpu: 10m
+    request_mem: 16Mi
+scope: workload/argus-broken/pull-typo
+workload:
+  available: 0
+  conditions:
+  - last_change_seconds_ago: 24210
+    message: Deployment does not have minimum availability.
+    reason: MinimumReplicasUnavailable
+    status: "False"
+    type: Available
+  - last_change_seconds_ago: 23609
+    message: ReplicaSet "pull-typo-7fd6c69fb" has timed out progressing.
+    reason: ProgressDeadlineExceeded
+    status: "False"
+    type: Progressing
+  created_seconds_ago: 24210
+  desired: 1
+  generation: 1
+  kind: Deployment
+  name: pull-typo
+  namespace: argus-broken
+  observed_generation: 1
+  ready: 0
+  selector:
+    app: pull-typo
+  updated: 1
