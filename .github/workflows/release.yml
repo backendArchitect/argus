@@ -122,7 +122,7 @@ jobs:
           [ "$GOOS" = "windows" ] && bin="argus.exe"
           # Stamp the version. Without this every released binary reports
           # "0.1.0-dev", which makes bug reports unattributable to a release.
-          ldflags="-s -w -X github.com/backendArchitect/argus/internal/tools.Version=${TAG}"
+          ldflags="-s -w -X github.com/backendArchitect/argus/internal/tools.injected=${TAG}"
           go build -trimpath -ldflags="$ldflags" -o "$bin" .
           name="argus_${TAG}_${GOOS}_${GOARCH}"
           tar -czf "${name}.tar.gz" "$bin"

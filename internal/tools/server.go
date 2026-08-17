@@ -6,14 +6,40 @@ package tools
 
 import (
 	"context"
+	"runtime/debug"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/backendArchitect/argus/internal/kube"
 )
 
-// Version is the binary version, overridden at build time via -ldflags.
-var Version = "0.1.0-dev"
+// Version is the binary version.
+//
+// Release builds inject it with -ldflags. That covers the archives the release workflow produces
+// but NOT `go install module@version`, which the README recommends as the primary install path —
+// those binaries carry no ldflags at all and used to report themselves as a dev build, making any
+// bug report against them unattributable to a release.
+//
+// So an unstamped binary falls back to the module version the Go toolchain recorded at build time.
+var Version = versionOrBuildInfo("0.1.0-dev")
+
+// versionOrBuildInfo prefers an -ldflags value, then the embedded module version, then the fallback.
+func versionOrBuildInfo(fallback string) string {
+	if injected != "" {
+		return injected
+	}
+	if bi, ok := debug.ReadBuildInfo(); ok {
+		// "(devel)" is what a plain `go build` in a working tree reports; it is no more useful than
+		// the fallback, so keep the fallback's clearer wording.
+		if v := bi.Main.Version; v != "" && v != "(devel)" {
+			return v
+		}
+	}
+	return fallback
+}
+
+// injected is set via -ldflags by the release workflow.
+var injected string
 
 // Server builds the MCP server with every argus tool registered.
 //
