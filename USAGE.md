@@ -290,9 +290,10 @@ each carried a *different* IP still collapsed, because normalization runs before
 grouping:
 
 ```
-LOGS  pod/noisy-crashloop-6bb4cd97fd-7b779  container=app  instance=PREVIOUS (the instance that died)
-why   container "app" is the failing one (CrashLoopBackOff); reading the PREVIOUS
-      instance because the current one has produced nothing (it last died with Error)
+LOGS  pod/noisy-crashloop-97b6fd6f8-q24pg  container=app  instance=PREVIOUS (the instance that died)
+why   container "app" is the failing one (CrashLoopBackOff); reading the PREVIOUS instance because
+      the container is CrashLoopBackOff and the current one has produced nothing (it last died
+      with Error)
 
      starting up: DATABASE_URL=postgres://orders:<redacted>@db.internal:5432/orders
      config loaded: STRIPE_API_KEY=<redacted>
