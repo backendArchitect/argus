@@ -1,0 +1,27 @@
+# Compiled binary. `go build` and hack/capture-fixtures.sh both drop it here, and
+# it is ~42MB — committing it once is painful to undo.
+/argus
+/argus.exe
+/argus-stamped
+
+# Test and coverage artifacts
+*.test
+*.out
+coverage.*
+
+# Go workspace files: local-only, and they silently change dependency resolution
+# for anyone who checks them out.
+go.work
+go.work.sum
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Scratch captures. Real fixtures live in testdata/snapshots/ and are committed
+# deliberately via hack/rebuild-fixtures.sh; ad-hoc ones from `argus capture > x.yaml`
+# should not sneak in.
+/snapshot.yaml
+/*.snapshot.yaml
