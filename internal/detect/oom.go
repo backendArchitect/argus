@@ -12,11 +12,6 @@ import (
 // still a limit rather than an abdication.
 const oomHeadroom = 1.5
 
-// oomRecentSeconds bounds how long an OOMKill stays newsworthy on a container that has since
-// recovered. An hour is a judgement call: long enough to cover a kill that happened just before
-// someone started investigating, short enough that yesterday's blip is not today's incident.
-const oomRecentSeconds = 3600
-
 // detectOOMKill finds containers the kernel killed for exceeding their memory
 // limit.
 //
@@ -36,12 +31,7 @@ func detectOOMKill(s *model.Snapshot) []model.Finding {
 				continue
 			}
 
-			// A container that is running and ready has recovered. An OOMKill from weeks ago is
-			// history, not an incident — on a live cluster this reported critical/95% about a pod
-			// that was killed once 18 days ago and healthy ever since. Capacity advice on a
-			// working workload belongs in a resource-pressure tool, not in an incident diagnosis.
-			recovered := c.Ready && c.State.Status == "running"
-			if recovered && c.LastState.SecondsAgo > oomRecentSeconds {
+			if staleFailure(c) {
 				continue
 			}
 

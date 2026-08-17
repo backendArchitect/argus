@@ -28,6 +28,7 @@ type Detector struct {
 var registry = []Detector{
 	{ID: "node.unhealthy-host", Detect: detectNodePressure},
 	{ID: "oomkill.limit-too-low", Detect: detectOOMKill},
+	{ID: "crashloop.exiting-nonzero", Detect: detectCrashLoop},
 	{ID: "rollout.bad-template", Detect: detectBadRollout},
 	{ID: "image.pull-failed", Detect: detectImagePull},
 	{ID: "endpoints.no-ready-backends", Detect: detectEndpointGap},
@@ -86,6 +87,25 @@ func confidence(s *model.Snapshot, base float64, needs ...string) float64 {
 		}
 	}
 	return base
+}
+
+// recentFailureSeconds bounds how long a past container death stays newsworthy once the container
+// has recovered. An hour is a judgement call: long enough to cover a death that happened just
+// before someone started investigating, short enough that yesterday's blip is not today's incident.
+const recentFailureSeconds = 3600
+
+// staleFailure reports whether a container's last death is history rather than an incident.
+//
+// Shared by every detector that reads LastState, because the trap is not specific to one of them:
+// a live cluster reported critical/95% about a pod OOM-killed once, 18 days earlier, and healthy
+// ever since — displacing whatever was actually wrong. Any detector reasoning from a past death
+// needs this same gate, so it lives here rather than being re-derived per detector.
+func staleFailure(c *model.ContainerView) bool {
+	if c.LastState == nil {
+		return true
+	}
+	recovered := c.Ready && c.State.Status == "running"
+	return recovered && c.LastState.SecondsAgo > recentFailureSeconds
 }
 
 // evidence is a small constructor to keep detector bodies readable.
