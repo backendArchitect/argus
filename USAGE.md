@@ -16,6 +16,7 @@ The full reference. For the short version, see [README.md](README.md).
 - [The snapshot](#the-snapshot)
 - [Context budget](#context-budget)
 - [Connect an AI editor (MCP)](#connect-an-ai-editor-mcp)
+- [Logs](#logs)
 - [Detectors](#detectors)
 - [Safety limits](#safety-limits)
 - [Fixtures and testing](#fixtures-and-testing)
@@ -28,6 +29,7 @@ The full reference. For the short version, see [README.md](README.md).
 ```
 argus serve                          MCP server over stdio (the default command)
 argus diagnose <workload> -n <ns>    diagnose from the terminal, no MCP involved
+argus logs     <workload> -n <ns>    logs for the failing container, with judgment
 argus capture  <workload> -n <ns>    collect a raw snapshot, print YAML to stdout
 argus version                        print the version
 ```
@@ -243,11 +245,72 @@ You should get two JSON-RPC responses, the second containing
 |---|---|---|
 | `server_info` | **working** | Version, read-only status, available tools. Needs no cluster — a failure here is transport, not Kubernetes. |
 | `diagnose_workload` | **working** | Ranked, evidence-backed diagnosis for one workload |
+| `get_workload_logs` | **working** | Logs with judgment — see below |
 | `cluster_triage` | *planned* | What is broken right now, grouped by owner |
-| `get_workload_logs` | *planned* | Logs with judgment |
 
 Tool input and output schemas are generated from Go types, so they never drift
 from the implementation.
+
+## Logs
+
+`get_workload_logs` and `argus logs` exist because fetching logs correctly during
+an incident takes four decisions that are easy to get wrong under pressure.
+
+**Which pod.** The least-ready one, then the most-restarted. A healthy replica's
+logs say nothing about why its sibling is dying.
+
+**Which container.** The one that is actually failing. Sidecars — `istio-proxy`,
+`linkerd-proxy`, `cloudsql-proxy`, `otel-collector` and friends — are skipped
+unless nothing else is present. Fetching the mesh proxy's access log while the
+app container OOMKills is the most common way to waste a round-trip.
+
+**Which instance.** On a crashlooping container argus reads the **previous**
+one by default. The current instance is in backoff and has written nothing, so
+its logs are empty and misleading; whatever explains the crash is in the instance
+that died. Pass `previous` explicitly to override. If no previous instance exists
+the call falls back to the current one and says so rather than failing.
+
+**How much.** Output is capped by a **token** budget, not a line count — "the
+last 100 lines" is meaningless when one line is a 4KB JSON blob and the next is
+`ok`. When the budget binds, the **newest** lines are kept, because a failure is
+at the end of a log and never the start, and the number elided is always
+reported.
+
+Lines identical after normalization collapse into one entry with a count. On a
+real crashloop this took 206 lines to 7 — 200 "connection refused" lines that
+each carried a *different* IP still collapsed, because normalization runs before
+grouping:
+
+```
+LOGS  pod/noisy-crashloop-6bb4cd97fd-7b779  container=app  instance=PREVIOUS (the instance that died)
+why   container "app" is the failing one (CrashLoopBackOff); reading the PREVIOUS
+      instance because the current one has produced nothing (it last died with Error)
+
+     starting up: DATABASE_URL=postgres://orders:<redacted>@db.internal:5432/orders
+     config loaded: STRIPE_API_KEY=<redacted>
+[x200] dial tcp 10.4.2.0:5432: connect: connection refused
+     panic: runtime error: invalid memory address or nil pointer dereference
+     goroutine 1 [running]:
+     main.connect(0xc000123456)
+     	/src/main.go:42 +0x1a5
+```
+
+### Credentials are redacted from log content
+
+Projection keeps secrets out of object fields by never reading Secrets and never
+emitting env values. Logs are the harder half: an application can print anything,
+and applications print credentials constantly.
+
+Redaction matches on **shape**, since a log line carries no context to reason
+from — JWTs, AWS/GCP/GitHub/Slack key formats, private key headers, credentials
+embedded in connection URLs, `Authorization` headers, and `key=value` pairs whose
+key means a secret. A Shannon-entropy backstop catches bespoke tokens that match
+no known vendor format.
+
+Only the secret is replaced, not the line: `postgres://orders:<redacted>@db:5432`
+tells you what went missing and where. Over-redaction blinds the diagnosis the
+logs were fetched for, so the entropy backstop deliberately spares long hex
+digests, git SHAs and snake-cased identifiers.
 
 ## Detectors
 
@@ -350,11 +413,9 @@ Notable guard tests, if one fails and you're wondering why it exists:
 
 Not built yet. Listed so the design is legible, not to imply availability.
 
-**v0.1** — `cluster_triage` ("what is broken right now", grouped by owner rather
-than per pod: forty crashlooping pods of one Deployment is one finding with a
-count) and `get_workload_logs` (auto-selects the failing container, defaults to
-`previous` on crashloop, anchors the window to an event, groups stack traces, and
-budgets output by tokens rather than lines).
+**v0.1** — `cluster_triage`: "what is broken right now", grouped by owner rather
+than per pod, so forty crashlooping pods of one Deployment is one finding with a
+count instead of forty findings.
 
 **v0.2** — `explain_pending` (per-node fit arithmetic: which nodes were excluded
 by taints, by affinity, by insufficient CPU/memory with the actual numbers),

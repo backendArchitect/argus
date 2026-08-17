@@ -6,10 +6,28 @@ All notable changes are noted here. The format loosely follows
 
 ## Unreleased
 
-argus is pre-release. `diagnose_workload` works end to end; `cluster_triage` and
-`get_workload_logs` are not built yet.
+argus is pre-release. `diagnose_workload` and `get_workload_logs` work end to
+end; `cluster_triage` is not built yet.
 
 ### Added
+
+- **`get_workload_logs`** and **`argus logs`** — logs with judgment. Picks the
+  least-ready pod, the failing container rather than a sidecar, and on a
+  crashlooping container reads the *previous* instance by default, because the
+  current one is in backoff and has written nothing. Falls back and says so when
+  no previous instance exists.
+- **Log redaction.** Credentials are matched on shape — JWTs, AWS/GCP/GitHub/Slack
+  key formats, private key headers, credentials inside connection URLs,
+  Authorization headers, and key=value pairs whose key means a secret — with a
+  Shannon-entropy backstop for bespoke tokens. Only the secret is replaced, so
+  `postgres://orders:<redacted>@db:5432` still says what went missing and where.
+  Verified against ten planted credentials, and against ordinary log lines that
+  must survive untouched.
+- **Log grouping and a token budget.** Lines identical after normalization
+  collapse to one entry with a count; output is capped by tokens rather than
+  lines, and the newest lines are kept because a failure is at the end of a log.
+  On a real crashloop: 206 lines to 7, including 200 "connection refused" lines
+  that each carried a different IP.
 
 - **`diagnose_workload`** and **`argus diagnose`** — the flagship tool and its CLI
   equivalent, sharing one code path so the two cannot drift. Returns both a
