@@ -16,6 +16,17 @@ import (
 // Without the second half this is just "the workload is broken", which the user
 // already knew.
 func detectBadRollout(s *model.Snapshot) []model.Finding {
+	// The workload itself must actually be unhealthy. This guard is the important one: it does not
+	// depend on getting ReplicaSet bookkeeping right, and ReplicaSet bookkeeping is exactly what
+	// went wrong on a live cluster — a rollback leaves a superseded RS looking current, and a
+	// perfectly healthy 1/1 Deployment was reported as a failing rollout.
+	//
+	// If the Deployment reports its full complement ready, nothing is failing, whatever the
+	// ReplicaSets say.
+	if s.Workload == nil || s.Workload.Desired == 0 || s.Workload.Ready >= s.Workload.Desired {
+		return nil
+	}
+
 	current, previous := currentRS(s)
 	if current == nil || previous == nil {
 		return nil

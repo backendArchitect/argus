@@ -12,6 +12,11 @@ import (
 // still a limit rather than an abdication.
 const oomHeadroom = 1.5
 
+// oomRecentSeconds bounds how long an OOMKill stays newsworthy on a container that has since
+// recovered. An hour is a judgement call: long enough to cover a kill that happened just before
+// someone started investigating, short enough that yesterday's blip is not today's incident.
+const oomRecentSeconds = 3600
+
 // detectOOMKill finds containers the kernel killed for exceeding their memory
 // limit.
 //
@@ -28,6 +33,15 @@ func detectOOMKill(s *model.Snapshot) []model.Finding {
 		for j := range pod.Containers {
 			c := &pod.Containers[j]
 			if c.LastState == nil || c.LastState.Reason != "OOMKilled" {
+				continue
+			}
+
+			// A container that is running and ready has recovered. An OOMKill from weeks ago is
+			// history, not an incident — on a live cluster this reported critical/95% about a pod
+			// that was killed once 18 days ago and healthy ever since. Capacity advice on a
+			// working workload belongs in a resource-pressure tool, not in an incident diagnosis.
+			recovered := c.Ready && c.State.Status == "running"
+			if recovered && c.LastState.SecondsAgo > oomRecentSeconds {
 				continue
 			}
 
@@ -78,7 +92,7 @@ func detectOOMKill(s *model.Snapshot) []model.Finding {
 				NextTool: &model.ToolHint{
 					Tool:   "get_workload_logs",
 					Args:   map[string]string{"workload": pod.OwnerName, "previous": "true"},
-					Reason: "the current container is in backoff and has produced nothing; the previous one holds whatever it logged before the kill",
+					Reason: logsHintReason(c),
 				},
 			})
 			// One finding per pod is enough — every replica of a misconfigured
@@ -100,8 +114,18 @@ func oomDetail(c *model.ContainerView, limit int64) (detail, suggestion string) 
 			"it competing with its neighbours.", ""
 	}
 
-	detail = fmt.Sprintf("%s of %s. It is now in %s, so it will keep restarting and dying "+
-		"until the limit is raised or its memory use comes down.", base, c.LimitMem, stateLabel(c))
+	switch {
+	case c.State.Status == "waiting":
+		detail = fmt.Sprintf("%s of %s. It is now in %s, so it will keep restarting and dying "+
+			"until the limit is raised or its memory use comes down.", base, c.LimitMem, stateLabel(c))
+	case c.Ready:
+		detail = fmt.Sprintf("%s of %s. It has restarted and is serving again, but the kill was "+
+			"recent enough to still be the incident: the limit will keep killing it under the "+
+			"same load.", base, c.LimitMem)
+	default:
+		detail = fmt.Sprintf("%s of %s. It is %s and not yet ready, so it has not recovered from "+
+			"the kill.", base, c.LimitMem, stateLabel(c))
+	}
 
 	usage := model.ParseMem(c.UsageMem)
 	if usage == 0 {
@@ -131,4 +155,16 @@ func humanMem(b int64) string {
 		return fmt.Sprintf("%.1fGi", float64(b)/float64(1024*mi))
 	}
 	return fmt.Sprintf("%dMi", (b+mi-1)/mi)
+}
+
+// logsHintReason explains why the previous instance is the one to read. The wording has to match
+// what the container is actually doing: a recovered container is not "in backoff", and telling an
+// SRE otherwise sends them looking for a state that is not there.
+func logsHintReason(c *model.ContainerView) string {
+	if c.State.Status == "waiting" {
+		return "the current container is in backoff and has produced nothing; the previous one holds " +
+			"whatever it logged before the kill"
+	}
+	return "the current container restarted after the kill, so the output leading up to it is in the " +
+		"previous instance"
 }
