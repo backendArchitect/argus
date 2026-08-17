@@ -1,0 +1,132 @@
+degraded:
+- 'metrics: the server could not find the requested resource (get pods.metrics.k8s.io)'
+events:
+- count: 1
+  first_seen_seconds_ago: 305
+  last_seen_seconds_ago: 305
+  message: Created container app
+  object_count: 1
+  object_kind: Pod
+  object_name: gapped-86854468f9-hwftk
+  reason: Created
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 305
+  last_seen_seconds_ago: 305
+  message: Container image "registry.k8s.io/pause:3.9" already present on machine
+  object_count: 1
+  object_kind: Pod
+  object_name: gapped-86854468f9-hwftk
+  reason: Pulled
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 305
+  last_seen_seconds_ago: 305
+  message: Started container app
+  object_count: 1
+  object_kind: Pod
+  object_name: gapped-86854468f9-hwftk
+  reason: Started
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 306
+  last_seen_seconds_ago: 306
+  message: Scaled up replica set gapped-<hash> to 1
+  object_count: 1
+  object_kind: Deployment
+  object_name: gapped
+  reason: ScalingReplicaSet
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 306
+  last_seen_seconds_ago: 306
+  message: Successfully assigned argus-broken/gapped-<pod> to argus-test-control-plane
+  object_count: 1
+  object_kind: Pod
+  object_name: gapped-86854468f9-hwftk
+  reason: Scheduled
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 306
+  last_seen_seconds_ago: 306
+  message: 'Created pod: gapped-<pod>'
+  object_count: 1
+  object_kind: ReplicaSet
+  object_name: gapped-86854468f9
+  reason: SuccessfulCreate
+  type: Normal
+namespace: argus-broken
+nodes:
+- alloc_cpu: "16"
+  alloc_mem: 28358548Ki
+  name: argus-test-control-plane
+  ready: true
+pods:
+- containers:
+  - image: registry.k8s.io/pause:3.9
+    name: app
+    ready: true
+    request_cpu: 10m
+    request_mem: 8Mi
+    restart_count: 0
+    started: true
+    state:
+      seconds_ago: 305
+      status: running
+  created_seconds_ago: 306
+  labels:
+    app: gapped
+    pod-template-hash: 86854468f9
+  name: gapped-86854468f9-hwftk
+  node: argus-test-control-plane
+  owner_kind: ReplicaSet
+  owner_name: gapped-86854468f9
+  phase: Running
+  ready: true
+replicasets:
+- available: 1
+  created_seconds_ago: 306
+  current: true
+  desired: 1
+  name: gapped-86854468f9
+  ready: 1
+  revision: "1"
+  template:
+  - image: registry.k8s.io/pause:3.9
+    name: app
+    request_cpu: 10m
+    request_mem: 8Mi
+scope: workload/argus-broken/gapped
+services:
+- matched_pods: 0
+  name: gapped
+  not_ready_count: 0
+  ports:
+  - 80/TCP->8080
+  ready_count: 0
+  selector:
+    app: gapped-api
+workload:
+  available: 1
+  conditions:
+  - last_change_seconds_ago: 302
+    message: Deployment has minimum availability.
+    reason: MinimumReplicasAvailable
+    status: "True"
+    type: Available
+  - last_change_seconds_ago: 306
+    message: ReplicaSet "gapped-86854468f9" has successfully progressed.
+    reason: NewReplicaSetAvailable
+    status: "True"
+    type: Progressing
+  created_seconds_ago: 306
+  desired: 1
+  generation: 1
+  kind: Deployment
+  name: gapped
+  namespace: argus-broken
+  observed_generation: 1
+  ready: 1
+  selector:
+    app: gapped
+  updated: 1
