@@ -18,6 +18,7 @@ The full reference. For the short version, see [README.md](README.md).
 - [Connect an AI editor (MCP)](#connect-an-ai-editor-mcp)
 - [Logs](#logs)
 - [Detectors](#detectors)
+- [Updating argus](#updating-argus)
 - [Safety limits](#safety-limits)
 - [Fixtures and testing](#fixtures-and-testing)
 - [Planned](#planned)
@@ -32,6 +33,7 @@ argus logs     <workload> -n <ns>    logs for the failing container, with judgme
 argus serve                          MCP server over stdio
 argus capture  <workload> -n <ns>    collect a raw snapshot, print YAML to stdout
 argus version                        print the version
+argus update                         replace this binary with the latest release
 argus help                           the command list and shared flags
 ```
 
@@ -365,6 +367,48 @@ Confidence is independent of severity, and a detector reading partial data lower
 its own. If the metrics API is unreachable, the OOM finding drops from 0.95 to
 0.71 and says so in prose. "We could not see it" must never render as "it looks
 fine".
+
+## Updating argus
+
+```sh
+argus update           # install the latest release
+argus update -check    # report whether one exists, change nothing
+argus update -force    # overwrite even a locally-built binary
+```
+
+Replacing a running executable from the network is the most security-sensitive
+thing argus does — in a tool whose entire pitch is that it cannot write anything.
+So this path fails closed:
+
+- **The checksum is mandatory.** The SHA-256 published beside the archive must be
+  fetched and must match. If it cannot be retrieved, the update is abandoned: an
+  unverifiable download is treated as a hostile one.
+- **HTTPS only**, including across redirects — GitHub redirects asset downloads to
+  its object storage, and a redirect that downgrades to plaintext is refused.
+- **Nothing downloaded is executed** during the update.
+- **The swap is atomic.** The new binary is verified in full, written beside the
+  target so the rename stays on one filesystem, then renamed over it. A failure at
+  any point leaves the existing binary intact rather than truncated.
+- **Only one file is taken from the archive**, matched by exact base name. A path
+  inside the archive is never honoured, so a crafted tarball cannot place a file
+  anywhere.
+- **A local build is never silently clobbered.** Go stamps a clone-built binary
+  with a pseudo-version and `+dirty`, and `update` refuses to overwrite that
+  without `-force`, since doing so would discard work in progress.
+
+`-check` never fails and never writes. It reports and exits 0 whatever the binary
+is — a dry run has nothing to protect against.
+
+### Reading `argus version`
+
+The version is the git tag; no version string lives in the source.
+
+| Output | Means |
+|---|---|
+| `v0.1.6` | a clean published release |
+| `v0.1.6+dirty` | that release, plus uncommitted changes |
+| `v0.1.7-0.2026…-e89faa…` | a pseudo-version: built from a commit after the last tag |
+| `0.1.0-dev` | nothing stamped it, and no module metadata was embedded |
 
 ## Safety limits
 

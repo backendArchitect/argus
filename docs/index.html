@@ -369,14 +369,14 @@ findings   1 (1 critical)
     <div class="stat"><div class="n" data-to="326">0</div><div class="l">tokens per pod</div><div class="was">was 946 · budget 400</div></div>
     <div class="stat"><div class="n" data-to="3300" data-fmt="k">0</div><div class="l">tokens per snapshot</div><div class="was">was ~10,400</div></div>
     <div class="stat"><div class="n" data-to="13">0</div><div class="l">apiserver calls</div><div class="was">hard cap 60</div></div>
-    <div class="stat"><div class="n" data-to="16" data-fmt="s">0</div><div class="l">test suite, no cluster</div><div class="was">detectors are pure functions</div></div>
+    <div class="stat"><div class="n" data-to="19" data-fmt="s">0</div><div class="l">test suite, no cluster</div><div class="was">50 tests, detectors are pure</div></div>
   </div>
 </section>
 
 <section id="detectors" class="wrap">
   <div class="rv">
     <p class="eyebrow">The correlation engine</p>
-    <h2>Six detectors that name a cause</h2>
+    <h2>Seven detectors that name a cause</h2>
     <p class="lede">
       Each is a pure function over a snapshot, so each is replayable against a committed fixture.
       Every fixture asserts its detector fires <em>and that no others do</em> — the negative half is
@@ -385,6 +385,7 @@ findings   1 (1 critical)
     </p>
   </div>
   <div class="grid rv">
+    <div class="card"><h3>crashloop.*</h3><p>Reads the <em>exit code</em> instead of restating CrashLoopBackOff. A broken entrypoint, a container that exits zero and should be a Job, SIGSEGV, an abort, a liveness-probe SIGTERM — each gets its own remedy.</p><span class="sig">lastState reason + exit code + the runtime's own error</span></div>
     <div class="card"><h3>oomkill.limit-too-low</h3><p>The kernel killed it for exceeding its own limit — with a suggested new limit when usage data supports one.</p><span class="sig">lastState.reason=OOMKilled + limit + peak usage</span></div>
     <div class="card"><h3>rollout.bad-template</h3><p>The new revision is failing and the previous one was healthy. Reports the fields that changed between them.</p><span class="sig">RS health pair + semantic template diff</span></div>
     <div class="card"><h3>image.pull-*</h3><p>Distinguishes a typo'd tag from a missing pull secret, refused credentials, and a registry rate limit — four causes, one symptom.</p><span class="sig">waiting.reason + the runtime's own error text</span></div>
@@ -418,6 +419,10 @@ findings   1 (1 critical)
       <p><code>Secret</code> objects are never read. Environment variable <em>values</em> are never projected — only key names, which is all a detector needs. Verified by test.</p>
     </div>
     <div class="safe-item">
+      <h4>Self-update fails closed</h4>
+      <p>The one thing argus writes is its own binary. The published SHA-256 must match or the update is abandoned, HTTPS is required across redirects, and the swap is a rename — a failure leaves the working binary intact.</p>
+    </div>
+    <div class="safe-item">
       <h4>It cannot flood your control plane</h4>
       <p>A hard apiserver call budget lives in an <code>http.RoundTripper</code>, counting every request and retry. A diagnostic tool is run <em>during</em> an incident.</p>
     </div>
@@ -436,6 +441,11 @@ findings   1 (1 critical)
       Or drive it straight from a terminal, no MCP involved:
     </p>
     <div class="code"><button class="copy" data-copy="argus diagnose checkout-api -n prod">copy</button><span class="p">$</span> argus diagnose checkout-api <span style="color:var(--fg-mute)">-n prod</span></div>
+    <p class="lede" style="margin:6px 0 0">
+      And to update it later — checksum-verified, atomic, and it will not clobber a build you made
+      from a clone:
+    </p>
+    <div class="code"><button class="copy" data-copy="argus update">copy</button><span class="p">$</span> argus update <span style="color:var(--fg-mute)"># or: argus update -check</span></div>
   </div>
 </section>
 
@@ -445,9 +455,9 @@ findings   1 (1 critical)
     <h2>Honest about what exists</h2>
   </div>
   <ul class="roadmap rv">
-    <li><span class="pill pill-now">shipping</span><span><strong>diagnose_workload</strong> · six detectors · fuzzy resolution · projection &amp; event dedup · <code>capture</code> fixtures · read-only build gate</span></li>
+    <li><span class="pill pill-now">shipping</span><span><strong>diagnose_workload</strong> · seven detectors · fuzzy resolution · projection &amp; event dedup · <code>capture</code> fixtures · read-only build gate · verified self-update</span></li>
     <li><span class="pill pill-next">v0.1</span><span><strong>cluster_triage</strong> — what is broken right now, grouped by owner, not per pod</span></li>
-    <li><span class="pill pill-next">v0.1</span><span><strong>get_workload_logs</strong> — auto-selects the failing container, defaults to <code>previous</code> on crashloop, groups stack traces, budgets by tokens</span></li>
+    <li><span class="pill pill-now">shipping</span><span><strong>get_workload_logs</strong> — picks the failing container over sidecars, reads the <code>previous</code> instance on a crashloop, collapses repeated lines, redacts credentials, budgets by tokens. Took a real crashloop from 206 lines to 7</span></li>
     <li><span class="pill pill-later">v0.2</span><span><strong>explain_pending</strong> · <strong>trace_service_path</strong> · informer cache</span></li>
     <li><span class="pill pill-later">v0.3</span><span>GKE Cloud Logging fallback for evicted pods · <strong>compare_environments</strong> · <strong>check_reachability</strong></span></li>
     <li><span class="pill pill-later">maybe never</span><span>Mutations. That is where the liability is; read-only diagnosis is where nearly all the value is.</span></li>

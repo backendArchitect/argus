@@ -11,6 +11,25 @@ end; `cluster_triage` is not built yet.
 
 ### Added
 
+- **`argus update`** — verified, atomic self-update, plus `-check` and `-force`.
+  The published SHA-256 must be fetched and must match or the update is abandoned;
+  HTTPS is required across redirects; only one file is taken from the archive by
+  exact base name so a crafted tarball cannot place anything; the swap is a rename
+  on the same filesystem so a failure leaves the working binary intact; and a
+  clone-built binary is never overwritten without `-force`.
+- **Real CLI help.** `argus --help` previously fell through to the serve flagset,
+  printed `Usage of serve:` and exited 1 with `flag: help requested` leaking out —
+  help read as a crash and the commands were undiscoverable. Now there is a
+  top-level usage, per-command help with worked examples, and exit 0 throughout.
+  The dispatch table and help text are one source so they cannot drift. A bare
+  `argus` prints help rather than silently waiting on stdin.
+- **Crash-loop detection**, the most common Kubernetes failure and previously a
+  silent gap. Reads the exit code rather than restating CrashLoopBackOff: a broken
+  entrypoint, a container that exits zero and should be a Job, SIGSEGV/SIGABRT, and
+  SIGTERM from a liveness probe all get their own diagnosis and remedy.
+- **`[minor]` / `[major]` in a commit message** now bump the release accordingly;
+  the workflow could previously only patch-bump.
+
 - **`get_workload_logs`** and **`argus logs`** — logs with judgment. Picks the
   least-ready pod, the failing container rather than a sidecar, and on a
   crashlooping container reads the *previous* instance by default, because the

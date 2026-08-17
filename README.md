@@ -146,6 +146,18 @@ Requires **Go 1.26+** and a working kubeconfig.
 Prebuilt binaries (Linux/macOS/Windows · amd64 & arm64) are on the
 [Releases page](https://github.com/backendArchitect/argus/releases).
 
+### Updating
+
+```sh
+argus update           # replace this binary with the latest release
+argus update -check    # just report whether one is available
+```
+
+The download is verified against the SHA-256 published beside it and the swap is
+atomic, so a failed update leaves the working binary untouched. It refuses to
+overwrite a binary you built from a clone — use `go install .` for that, or
+`argus update -force` if you really mean it.
+
 The container image is distroless and runs as a nonroot uid, so mount the
 kubeconfig **file** and name it explicitly — mounting `~/.kube` as a directory
 lands on a path the container user cannot read:
@@ -177,6 +189,7 @@ claude mcp add argus -- argus serve
 - **`get_workload_logs`** — picks the failing pod and container over sidecars, reads the
   *previous* instance on a crashloop, collapses repeated lines, redacts credentials, and budgets
   by tokens. Took a real crashloop from 206 lines to 7
+- **`argus update`** — verified, atomic self-update
 - **Seven detectors** — crash loop (which distinguishes a container the runtime *cannot start* from
   one that starts and exits, and reads the exit code: wrong entrypoint, segfault, abort, exits-zero,
   SIGTERM) · OOM limit too low · bad rollout · image pull (four distinct causes) ·
