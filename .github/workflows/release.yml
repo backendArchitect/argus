@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with: {go-version: '1.26', cache: true}
       - name: gofmt
         run: |
@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with: {go-version: '1.26', cache: true}
 
       # The read-only guarantee is the single most important property of this
@@ -109,7 +109,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: {ref: "${{ needs.tag.outputs.tag }}"}
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with: {go-version: '1.26'}
       - name: Build & package
         env:
