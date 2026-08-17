@@ -58,7 +58,7 @@ func container(c *corev1.Container, status map[string]corev1.ContainerStatus,
 	// of a ReplicaSet — repeating them per pod multiplied one real workload's 93 env keys by its
 	// pod count and blew the per-pod budget by 2.4x on its own. They stay in ReplicaSetView.
 	// .Template, which is the only place anything reads them (the rollout diff).
-	spec.EnvKeys, spec.EnvFrom, spec.Args, spec.Mounts = nil, nil, nil, nil
+	spec.EnvKeys, spec.EnvFrom, spec.Args, spec.Command, spec.Mounts = nil, nil, nil, nil, nil
 	cv := model.ContainerView{ContainerSpecView: spec}
 
 	if cs, ok := status[c.Name]; ok {
@@ -88,6 +88,7 @@ func ContainerSpec(c *corev1.Container) model.ContainerSpecView {
 	s := model.ContainerSpecView{
 		Name:      c.Name,
 		Image:     c.Image,
+		Command:   c.Command,
 		Args:      c.Args,
 		Readiness: probe(c.ReadinessProbe),
 		Liveness:  probe(c.LivenessProbe),

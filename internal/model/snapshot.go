@@ -129,6 +129,9 @@ type ContainerSpecView struct {
 	LimitCPU   string `json:"limit_cpu,omitempty"`
 	LimitMem   string `json:"limit_mem,omitempty"`
 
+	// Command is the entrypoint override. It is what exit 126/127 is usually about, and citing it
+	// turns "exit 127" into "your command is X and the image does not contain it".
+	Command []string `json:"command,omitempty"`
 	Args    []string `json:"args,omitempty"`
 	EnvKeys []string `json:"env_keys,omitempty"` // keys only; values are redacted at the projection boundary
 	EnvFrom []string `json:"env_from,omitempty"`

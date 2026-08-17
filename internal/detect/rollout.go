@@ -103,6 +103,7 @@ func diffTemplates(prev, cur []model.ContainerSpecView) []string {
 		add("memory request", p.RequestMem, c.RequestMem)
 		add("cpu request", p.RequestCPU, c.RequestCPU)
 		add("image", p.Image, c.Image)
+		add("command", strings.Join(p.Command, " "), strings.Join(c.Command, " "))
 		add("args", strings.Join(p.Args, " "), strings.Join(c.Args, " "))
 		add("readiness probe", probeSummary(p.Readiness), probeSummary(c.Readiness))
 		add("liveness probe", probeSummary(p.Liveness), probeSummary(c.Liveness))
