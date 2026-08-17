@@ -1,0 +1,30 @@
+# Revision 1: healthy. Apply this, wait for it to go Ready, THEN apply -v2.
+#
+# The order matters. The rollout detector's whole claim is "the new ReplicaSet is
+# unhealthy and the previous one was healthy" — which is only true if a previously
+# healthy ReplicaSet actually exists in cluster history. Applying v2 alone produces
+# a broken workload with no baseline, which is a different (and much weaker)
+# diagnosis.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bad-rollout
+  namespace: argus-broken
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels: {app: bad-rollout}
+  template:
+    metadata:
+      labels: {app: bad-rollout}
+    spec:
+      containers:
+        - name: app
+          image: registry.k8s.io/pause:3.9
+          env:
+            - name: LOG_LEVEL
+              value: info
+          resources:
+            requests: {memory: 8Mi, cpu: 10m}
+            limits: {memory: 64Mi}

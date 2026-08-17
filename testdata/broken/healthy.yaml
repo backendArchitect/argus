@@ -1,0 +1,37 @@
+# The control. Nothing is wrong with this workload, and every detector runs
+# against it.
+#
+# This is the most important file in the directory. Without a healthy control the
+# suite proves only that detectors are eager, never that they are discriminating —
+# and a detector that fires on a working workload costs an SRE more time than it
+# saves.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: healthy
+  namespace: argus-broken
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: healthy}
+  template:
+    metadata:
+      labels: {app: healthy}
+    spec:
+      containers:
+        - name: app
+          image: registry.k8s.io/pause:3.9
+          resources:
+            requests: {memory: 8Mi, cpu: 10m}
+            limits: {memory: 32Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: healthy
+  namespace: argus-broken
+spec:
+  selector: {app: healthy}
+  ports:
+    - port: 80
+      targetPort: 8080
