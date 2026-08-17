@@ -1,0 +1,155 @@
+degraded:
+- 'metrics: the server could not find the requested resource (get pods.metrics.k8s.io)'
+events:
+- count: 306
+  first_seen_seconds_ago: 305
+  last_seen_seconds_ago: 5
+  message: 'Readiness probe failed: dial tcp <ip>: connect: connection refused'
+  object_count: 1
+  object_kind: Pod
+  object_name: slow-starter-56687b8b48-r8jwv
+  reason: Unhealthy
+  type: Warning
+- count: 1
+  first_seen_seconds_ago: 306
+  last_seen_seconds_ago: 306
+  message: Created container app
+  object_count: 1
+  object_kind: Pod
+  object_name: slow-starter-56687b8b48-r8jwv
+  reason: Created
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 306
+  last_seen_seconds_ago: 306
+  message: Container image "busybox:1.36" already present on machine
+  object_count: 1
+  object_kind: Pod
+  object_name: slow-starter-56687b8b48-r8jwv
+  reason: Pulled
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 306
+  last_seen_seconds_ago: 306
+  message: Started container app
+  object_count: 1
+  object_kind: Pod
+  object_name: slow-starter-56687b8b48-r8jwv
+  reason: Started
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 307
+  last_seen_seconds_ago: 307
+  message: Scaled up replica set slow-starter-<hash> to 1
+  object_count: 1
+  object_kind: Deployment
+  object_name: slow-starter
+  reason: ScalingReplicaSet
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 307
+  last_seen_seconds_ago: 307
+  message: Successfully assigned argus-broken/slow-starter-<pod> to argus-test-control-plane
+  object_count: 1
+  object_kind: Pod
+  object_name: slow-starter-56687b8b48-r8jwv
+  reason: Scheduled
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 307
+  last_seen_seconds_ago: 307
+  message: 'Created pod: slow-starter-<pod>'
+  object_count: 1
+  object_kind: ReplicaSet
+  object_name: slow-starter-56687b8b48
+  reason: SuccessfulCreate
+  type: Normal
+namespace: argus-broken
+nodes:
+- alloc_cpu: "16"
+  alloc_mem: 28358548Ki
+  name: argus-test-control-plane
+  ready: true
+pods:
+- containers:
+  - image: busybox:1.36
+    name: app
+    readiness:
+      failure_threshold: 2
+      initial_delay: 0
+      kind: tcp
+      period: 1
+      success_threshold: 1
+      timeout: 1
+    ready: false
+    request_cpu: 10m
+    request_mem: 16Mi
+    restart_count: 0
+    started: true
+    state:
+      seconds_ago: 306
+      status: running
+  created_seconds_ago: 307
+  labels:
+    app: slow-starter
+    pod-template-hash: 56687b8b48
+  name: slow-starter-56687b8b48-r8jwv
+  node: argus-test-control-plane
+  owner_kind: ReplicaSet
+  owner_name: slow-starter-56687b8b48
+  phase: Running
+  ready: false
+replicasets:
+- available: 0
+  created_seconds_ago: 307
+  current: true
+  desired: 1
+  name: slow-starter-56687b8b48
+  ready: 0
+  revision: "1"
+  template:
+  - image: busybox:1.36
+    name: app
+    readiness:
+      failure_threshold: 2
+      initial_delay: 0
+      kind: tcp
+      period: 1
+      success_threshold: 1
+      timeout: 1
+    request_cpu: 10m
+    request_mem: 16Mi
+scope: workload/argus-broken/slow-starter
+services:
+- matched_pods: 1
+  name: slow-starter
+  not_ready_count: 1
+  ports:
+  - 80/TCP->8080
+  ready_count: 0
+  selector:
+    app: slow-starter
+workload:
+  available: 0
+  conditions:
+  - last_change_seconds_ago: 307
+    message: Deployment does not have minimum availability.
+    reason: MinimumReplicasUnavailable
+    status: "False"
+    type: Available
+  - last_change_seconds_ago: 307
+    message: ReplicaSet "slow-starter-56687b8b48" is progressing.
+    reason: ReplicaSetUpdated
+    status: "True"
+    type: Progressing
+  created_seconds_ago: 307
+  desired: 1
+  generation: 1
+  kind: Deployment
+  name: slow-starter
+  namespace: argus-broken
+  observed_generation: 1
+  ready: 0
+  selector:
+    app: slow-starter
+  updated: 1

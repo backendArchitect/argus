@@ -1,0 +1,145 @@
+degraded:
+- 'metrics: the server could not find the requested resource (get pods.metrics.k8s.io)'
+events:
+- count: 6
+  first_seen_seconds_ago: 303
+  last_seen_seconds_ago: 186
+  message: 'Error: ImagePullBackOff'
+  object_count: 1
+  object_kind: Pod
+  object_name: pull-typo-7fd6c69fb-49lm5
+  reason: Failed
+  type: Warning
+- count: 4
+  first_seen_seconds_ago: 303
+  last_seen_seconds_ago: 215
+  message: 'Failed to pull image "nginx:1.27-this-tag-does-not-exist": rpc error:
+    code = NotFound desc = failed to pull and unpack image "docker.io/library/nginx:1.27-this-tag-does-not-exist":
+    failed to resolve reference "docker.io/library/nginx:1.27-this-tag-does-not-exist":
+    docker.io/library/nginx:1.27-this-tag-does-not-exist: not found'
+  object_count: 1
+  object_kind: Pod
+  object_name: pull-typo-7fd6c69fb-49lm5
+  reason: Failed
+  type: Warning
+- count: 4
+  first_seen_seconds_ago: 303
+  last_seen_seconds_ago: 215
+  message: 'Error: ErrImagePull'
+  object_count: 1
+  object_kind: Pod
+  object_name: pull-typo-7fd6c69fb-49lm5
+  reason: Failed
+  type: Warning
+- count: 7
+  first_seen_seconds_ago: 303
+  last_seen_seconds_ago: 174
+  message: Back-off pulling image "nginx:1.27-this-tag-does-not-exist"
+  object_count: 1
+  object_kind: Pod
+  object_name: pull-typo-7fd6c69fb-49lm5
+  reason: BackOff
+  type: Normal
+- count: 4
+  first_seen_seconds_ago: 306
+  last_seen_seconds_ago: 217
+  message: Pulling image "nginx:1.27-this-tag-does-not-exist"
+  object_count: 1
+  object_kind: Pod
+  object_name: pull-typo-7fd6c69fb-49lm5
+  reason: Pulling
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 307
+  last_seen_seconds_ago: 307
+  message: Scaled up replica set pull-typo-<hash> to 1
+  object_count: 1
+  object_kind: Deployment
+  object_name: pull-typo
+  reason: ScalingReplicaSet
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 307
+  last_seen_seconds_ago: 307
+  message: Successfully assigned argus-broken/pull-typo-<pod> to argus-test-control-plane
+  object_count: 1
+  object_kind: Pod
+  object_name: pull-typo-7fd6c69fb-49lm5
+  reason: Scheduled
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 307
+  last_seen_seconds_ago: 307
+  message: 'Created pod: pull-typo-<pod>'
+  object_count: 1
+  object_kind: ReplicaSet
+  object_name: pull-typo-7fd6c69fb
+  reason: SuccessfulCreate
+  type: Normal
+namespace: argus-broken
+nodes:
+- alloc_cpu: "16"
+  alloc_mem: 28358548Ki
+  name: argus-test-control-plane
+  ready: true
+pods:
+- containers:
+  - image: nginx:1.27-this-tag-does-not-exist
+    name: app
+    ready: false
+    request_cpu: 10m
+    request_mem: 16Mi
+    restart_count: 0
+    started: false
+    state:
+      message: Back-off pulling image "nginx:1.27-this-tag-does-not-exist"
+      reason: ImagePullBackOff
+      status: waiting
+  created_seconds_ago: 307
+  labels:
+    app: pull-typo
+    pod-template-hash: 7fd6c69fb
+  name: pull-typo-7fd6c69fb-49lm5
+  node: argus-test-control-plane
+  owner_kind: ReplicaSet
+  owner_name: pull-typo-7fd6c69fb
+  phase: Pending
+  ready: false
+replicasets:
+- available: 0
+  created_seconds_ago: 307
+  current: true
+  desired: 1
+  name: pull-typo-7fd6c69fb
+  ready: 0
+  revision: "1"
+  template:
+  - image: nginx:1.27-this-tag-does-not-exist
+    name: app
+    request_cpu: 10m
+    request_mem: 16Mi
+scope: workload/argus-broken/pull-typo
+workload:
+  available: 0
+  conditions:
+  - last_change_seconds_ago: 307
+    message: Deployment does not have minimum availability.
+    reason: MinimumReplicasUnavailable
+    status: "False"
+    type: Available
+  - last_change_seconds_ago: 307
+    message: ReplicaSet "pull-typo-7fd6c69fb" is progressing.
+    reason: ReplicaSetUpdated
+    status: "True"
+    type: Progressing
+  created_seconds_ago: 307
+  desired: 1
+  generation: 1
+  kind: Deployment
+  name: pull-typo
+  namespace: argus-broken
+  observed_generation: 1
+  ready: 0
+  selector:
+    app: pull-typo
+  updated: 1

@@ -1,0 +1,86 @@
+# HAND-AUTHORED, unlike its siblings, which are captured by hack/capture-fixtures.sh.
+#
+# A node reporting MemoryPressure cannot be induced reliably or safely in a local
+# cluster, and inducing it on a real one is out of the question. Writing the
+# snapshot by hand is legitimate precisely because model.Snapshot is plain data
+# with no client in it — a hand-written snapshot is indistinguishable from a
+# captured one, which is the same property that makes the whole suite clusterless.
+#
+# This fixture proves scope widening: two pods of this workload are failing, but
+# the cause is the node, so the workload-level findings must be SUPPRESSED and a
+# single node finding reported instead. Note the pods carry an OOMKilled lastState
+# that would otherwise fire oomkill.limit-too-low — that is the point.
+scope: workload/prod/checkout-api
+namespace: prod
+workload:
+  kind: Deployment
+  name: checkout-api
+  namespace: prod
+  selector: {app: checkout-api}
+  desired: 2
+  ready: 0
+  updated: 2
+  available: 0
+  generation: 4
+  observed_generation: 4
+  created_seconds_ago: 864000
+nodes:
+  - name: gke-cluster-default-pool-abc123
+    ready: true
+    conditions:
+      - type: MemoryPressure
+        status: "True"
+        reason: KubeletHasInsufficientMemory
+        message: kubelet has insufficient memory available
+        last_change_seconds_ago: 420
+    alloc_cpu: "7910m"
+    alloc_mem: 29074504Ki
+pods:
+  - name: checkout-api-7d9f8b6c5d-x2k9p
+    node: gke-cluster-default-pool-abc123
+    phase: Running
+    ready: false
+    owner_kind: ReplicaSet
+    owner_name: checkout-api-7d9f8b6c5d
+    created_seconds_ago: 600
+    labels: {app: checkout-api, pod-template-hash: 7d9f8b6c5d}
+    containers:
+      - name: app
+        image: registry.example.com/checkout-api:v1.4.2
+        request_cpu: 100m
+        request_mem: 256Mi
+        limit_mem: 512Mi
+        ready: false
+        started: false
+        restart_count: 3
+        state: {status: waiting, reason: CrashLoopBackOff}
+        last_state: {status: terminated, reason: OOMKilled, exit_code: 137, seconds_ago: 45}
+  - name: checkout-api-7d9f8b6c5d-m4l2q
+    node: gke-cluster-default-pool-abc123
+    phase: Running
+    ready: false
+    owner_kind: ReplicaSet
+    owner_name: checkout-api-7d9f8b6c5d
+    created_seconds_ago: 600
+    labels: {app: checkout-api, pod-template-hash: 7d9f8b6c5d}
+    containers:
+      - name: app
+        image: registry.example.com/checkout-api:v1.4.2
+        request_cpu: 100m
+        request_mem: 256Mi
+        limit_mem: 512Mi
+        ready: false
+        started: false
+        restart_count: 2
+        state: {status: waiting, reason: CrashLoopBackOff}
+        last_state: {status: terminated, reason: OOMKilled, exit_code: 137, seconds_ago: 60}
+events:
+  - type: Warning
+    reason: Evicted
+    message: "The node was low on resource: memory"
+    count: 6
+    object_kind: Pod
+    object_name: checkout-api-7d9f8b6c5d-m4l2q
+    object_count: 2
+    first_seen_seconds_ago: 400
+    last_seen_seconds_ago: 40

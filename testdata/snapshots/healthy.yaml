@@ -1,0 +1,156 @@
+degraded:
+- 'metrics: the server could not find the requested resource (get pods.metrics.k8s.io)'
+events:
+- count: 2
+  first_seen_seconds_ago: 305
+  last_seen_seconds_ago: 305
+  message: Created container app
+  object_count: 2
+  object_kind: Pod
+  object_name: healthy-654d9f694c-4kfwf
+  reason: Created
+  type: Normal
+- count: 2
+  first_seen_seconds_ago: 305
+  last_seen_seconds_ago: 305
+  message: Container image "registry.k8s.io/pause:3.9" already present on machine
+  object_count: 2
+  object_kind: Pod
+  object_name: healthy-654d9f694c-4kfwf
+  reason: Pulled
+  type: Normal
+- count: 2
+  first_seen_seconds_ago: 305
+  last_seen_seconds_ago: 305
+  message: Started container app
+  object_count: 2
+  object_kind: Pod
+  object_name: healthy-654d9f694c-4kfwf
+  reason: Started
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 306
+  last_seen_seconds_ago: 306
+  message: Scaled up replica set healthy-<hash> to 2
+  object_count: 1
+  object_kind: Deployment
+  object_name: healthy
+  reason: ScalingReplicaSet
+  type: Normal
+- count: 2
+  first_seen_seconds_ago: 306
+  last_seen_seconds_ago: 306
+  message: Successfully assigned argus-broken/healthy-<pod> to argus-test-control-plane
+  object_count: 2
+  object_kind: Pod
+  object_name: healthy-654d9f694c-4kfwf
+  reason: Scheduled
+  type: Normal
+- count: 2
+  first_seen_seconds_ago: 306
+  last_seen_seconds_ago: 306
+  message: 'Created pod: healthy-<pod>'
+  object_count: 1
+  object_kind: ReplicaSet
+  object_name: healthy-654d9f694c
+  reason: SuccessfulCreate
+  type: Normal
+namespace: argus-broken
+nodes:
+- alloc_cpu: "16"
+  alloc_mem: 28358548Ki
+  name: argus-test-control-plane
+  ready: true
+pods:
+- containers:
+  - image: registry.k8s.io/pause:3.9
+    limit_mem: 32Mi
+    name: app
+    ready: true
+    request_cpu: 10m
+    request_mem: 8Mi
+    restart_count: 0
+    started: true
+    state:
+      seconds_ago: 305
+      status: running
+  created_seconds_ago: 306
+  labels:
+    app: healthy
+    pod-template-hash: 654d9f694c
+  name: healthy-654d9f694c-4kfwf
+  node: argus-test-control-plane
+  owner_kind: ReplicaSet
+  owner_name: healthy-654d9f694c
+  phase: Running
+  ready: true
+- containers:
+  - image: registry.k8s.io/pause:3.9
+    limit_mem: 32Mi
+    name: app
+    ready: true
+    request_cpu: 10m
+    request_mem: 8Mi
+    restart_count: 0
+    started: true
+    state:
+      seconds_ago: 305
+      status: running
+  created_seconds_ago: 306
+  labels:
+    app: healthy
+    pod-template-hash: 654d9f694c
+  name: healthy-654d9f694c-f296h
+  node: argus-test-control-plane
+  owner_kind: ReplicaSet
+  owner_name: healthy-654d9f694c
+  phase: Running
+  ready: true
+replicasets:
+- available: 2
+  created_seconds_ago: 306
+  current: true
+  desired: 2
+  name: healthy-654d9f694c
+  ready: 2
+  revision: "1"
+  template:
+  - image: registry.k8s.io/pause:3.9
+    limit_mem: 32Mi
+    name: app
+    request_cpu: 10m
+    request_mem: 8Mi
+scope: workload/argus-broken/healthy
+services:
+- matched_pods: 2
+  name: healthy
+  not_ready_count: 0
+  ports:
+  - 80/TCP->8080
+  ready_count: 2
+  selector:
+    app: healthy
+workload:
+  available: 2
+  conditions:
+  - last_change_seconds_ago: 301
+    message: Deployment has minimum availability.
+    reason: MinimumReplicasAvailable
+    status: "True"
+    type: Available
+  - last_change_seconds_ago: 306
+    message: ReplicaSet "healthy-654d9f694c" has successfully progressed.
+    reason: NewReplicaSetAvailable
+    status: "True"
+    type: Progressing
+  created_seconds_ago: 306
+  desired: 2
+  generation: 1
+  kind: Deployment
+  name: healthy
+  namespace: argus-broken
+  observed_generation: 1
+  ready: 2
+  selector:
+    app: healthy
+  updated: 2
