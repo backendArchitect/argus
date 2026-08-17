@@ -422,7 +422,7 @@ findings   1 (1 critical)
     </div>
     <div class="safe-item">
       <h4>It cannot flood your control plane</h4>
-      <p>A hard apiserver call budget lives in an <code>http.RoundTripper</code>, counting every request and retry. A diagnostic tool is run <em>during</em> an incident.</p>
+      <p>A hard apiserver call budget lives in an <code>http.RoundTripper</code>, counting every request and retry. A diagnostic tool is run <em>during</em> an incident. Cluster-wide triage costs 10 calls whatever the cluster size — looping the per-workload diagnosis would have been ~1,700.</p>
     </div>
   </div>
 </section>
@@ -453,8 +453,8 @@ findings   1 (1 critical)
     <h2>Honest about what exists</h2>
   </div>
   <ul class="roadmap rv">
-    <li><span class="pill pill-now">shipping</span><span><strong>diagnose_workload</strong> · seven detectors · fuzzy resolution · projection &amp; event dedup · <code>capture</code> fixtures · read-only build gate · verified self-update</span></li>
-    <li><span class="pill pill-next">v0.1</span><span><strong>cluster_triage</strong> — the last v0.1 tool: what is broken right now, grouped by owner, not per pod</span></li>
+    <li><span class="pill pill-now">shipping</span><span><strong>diagnose_workload</strong> · <strong>cluster_triage</strong> · seven detectors · fuzzy resolution · projection &amp; event dedup · <code>capture</code> fixtures · read-only build gate · verified self-update</span></li>
+    <li><span class="pill pill-now">shipping</span><span><strong>cluster_triage</strong> — what is broken right now, grouped by controller. 130 workloads in 10 apiserver calls, constant in cluster size, because it inverts the data flow instead of looping the diagnosis</span></li>
     <li><span class="pill pill-now">shipping</span><span><strong>get_workload_logs</strong> — picks the failing container over sidecars, reads the <code>previous</code> instance on a crashloop, collapses repeated lines, redacts credentials, budgets by tokens. Took a real crashloop from 206 lines to 7</span></li>
     <li><span class="pill pill-later">v0.2</span><span><strong>explain_pending</strong> · <strong>trace_service_path</strong> · informer cache</span></li>
     <li><span class="pill pill-later">v0.3</span><span>GKE Cloud Logging fallback for evicted pods · <strong>compare_environments</strong> · <strong>check_reachability</strong></span></li>

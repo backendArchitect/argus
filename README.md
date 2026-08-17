@@ -21,7 +21,7 @@ by hand.
 
 > **Status: pre-release.** `diagnose_workload` works end to end — six detectors, ranked findings,
 > mandatory evidence — and is verified against fixtures captured from real clusters.
-> `cluster_triage` is not built yet. See [Roadmap](#roadmap).
+> All three v0.1 tools work. See [Roadmap](#roadmap) for what is next.
 
 ---
 
@@ -54,6 +54,9 @@ argus diagnose checkout-api -n prod
 
 # Run as an MCP server over stdio.
 argus serve
+
+# What is broken right now, across every namespace.
+argus triage
 
 # Logs for the failing container — previous instance if it is crashlooping.
 argus logs checkout-api -n prod
@@ -191,6 +194,9 @@ claude mcp add argus -- argus serve
 - **`get_workload_logs`** — picks the failing pod and container over sidecars, reads the
   *previous* instance on a crashloop, collapses repeated lines, redacts credentials, and budgets
   by tokens. Took a real crashloop from 206 lines to 7
+- **`cluster_triage`** — what is broken right now, grouped by controller and with infrastructure
+  findings collapsed. Constant cost: 130 workloads in 10 apiserver calls, not the ~1,700 a loop
+  over `diagnose_workload` would have taken
 - **`argus update`** — verified, atomic self-update
 - **Seven detectors, 19 finding IDs** — crash loop (which distinguishes a container the runtime *cannot start* from
   one that starts and exits, and reads the exit code: wrong entrypoint, segfault, abort, exits-zero,
@@ -207,8 +213,7 @@ claude mcp add argus -- argus serve
 - `argus capture` — snapshot to YAML, doubling as the fixture generator
 - Read-only enforcement, verified by an AST test
 
-**v0.1 — next.** One tool left: `cluster_triage` — what is broken right now, grouped by owner
-rather than per pod, so forty crashlooping pods of one Deployment is one finding with a count.
+**v0.1 is complete.**
 
 **v0.2** — `explain_pending` (per-node fit arithmetic for unschedulable pods),
 `trace_service_path`, informer cache, kind-based CI.

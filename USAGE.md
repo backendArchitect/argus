@@ -16,6 +16,7 @@ The full reference. For the short version, see [README.md](README.md).
 - [The snapshot](#the-snapshot)
 - [Context budget](#context-budget)
 - [Connect an AI editor (MCP)](#connect-an-ai-editor-mcp)
+- [Triage](#triage)
 - [Logs](#logs)
 - [Detectors](#detectors)
 - [Updating argus](#updating-argus)
@@ -30,6 +31,7 @@ The full reference. For the short version, see [README.md](README.md).
 ```
 argus diagnose <workload> -n <ns>    diagnose from the terminal, no MCP involved
 argus logs     <workload> -n <ns>    logs for the failing container, with judgment
+argus triage   [-n <ns>]             what is broken right now, grouped by controller
 argus serve                          MCP server over stdio
 argus capture  <workload> -n <ns>    collect a raw snapshot, print YAML to stdout
 argus version                        print the version
@@ -254,10 +256,81 @@ You should get two JSON-RPC responses, the second containing
 | `server_info` | **working** | Version, read-only status, available tools. Needs no cluster — a failure here is transport, not Kubernetes. |
 | `diagnose_workload` | **working** | Ranked, evidence-backed diagnosis for one workload |
 | `get_workload_logs` | **working** | Logs with judgment — see below |
-| `cluster_triage` | *planned* | What is broken right now, grouped by owner |
+| `cluster_triage` | **working** | What is broken right now, grouped by controller — see below |
 
 Tool input and output schemas are generated from Go types, so they never drift
 from the implementation.
+
+## Triage
+
+```sh
+argus triage            # every namespace
+argus triage -n prod    # one namespace
+```
+
+Start here when you do not yet know which workload to ask about.
+
+**It does not loop `diagnose_workload`.** A per-workload gather costs ~13 apiserver
+calls; a real cluster has hundreds of workloads. On the cluster this was built
+against that would be roughly 1,700 calls against a budget of 60 — issued precisely
+when the control plane is already under stress. So the data flow is inverted: a
+fixed handful of cluster-wide list calls, then pods are grouped by owner locally and
+one snapshot is assembled per controller. **Measured: 130 workloads in 10 apiserver
+calls**, and that number does not grow with the cluster.
+
+The detectors are reused unchanged. That is the payoff of writing them as pure
+functions over a `Snapshot` — triage produces the same diagnoses as
+`diagnose_workload`, protected by the same fixtures, with no second implementation
+to drift. When the two disagreed during development it turned out they didn't: both
+had degraded identically because a Kubernetes event had expired.
+
+**Results are grouped by controller, never by pod.** Forty crashlooping pods of one
+Deployment is one entry with a count.
+
+**Infrastructure findings are collapsed further.** One node under memory pressure
+would otherwise produce an identical critical finding on every workload it hosts —
+the per-pod noise problem repeated one level up. It is reported once, under
+`infrastructure`, with a count of how many workloads it affects, and the
+workload-level symptoms it explains are suppressed.
+
+```
+TRIAGE  namespace/argus-broken
+scanned 8 workload(s); 7 with findings
+
+── workloads ───────────────────────────────────────────────────
+
+Deployment argus-broken/bad-entrypoint  (0/1 ready, 1 pod(s))
+  [critical · 90%] crashloop.container-wont-start     Container "app" cannot be started at all
+
+Deployment argus-broken/gapped  (1/1 ready, 1 pod(s))
+  [critical · 90%] endpoints.selector-matches-nothing Service "gapped" selects no pods — its selector does not match the workload
+
+Deployment argus-broken/slow-starter  (0/1 ready, 1 pod(s))
+  [critical · 85%] endpoints.no-ready-backends        Service "slow-starter" has no ready backends — its pods are not passing readiness
+  [warning · 70%] probe.readiness-misconfigured      Container "app" is running but has never passed readiness in 1625s
+
+Deployment argus-broken/bad-rollout  (0/2 ready, 2 pod(s))
+  [critical · 80%] rollout.bad-template               Revision 2 is failing; revision 1 was healthy
+  [critical · 71%] oomkill.limit-too-low              Container "app" in bad-rollout-c446b9476 is being OOM-killed by its own memory limit
+
+Deployment argus-broken/oom-victim  (0/1 ready, 1 pod(s))
+  [critical · 71%] oomkill.limit-too-low              Container "app" in oom-victim-7cb68bdb99 is being OOM-killed by its own memory limit
+
+Deployment argus-broken/noisy-crashloop  (0/1 ready, 1 pod(s))
+  [critical · 60%] crashloop.exiting-nonzero          Container "app" is crash-looping, exiting 1
+
+Deployment argus-broken/pull-typo  (0/1 ready, 1 pod(s))
+  [critical · 60%] image.pull-failed                  Image pull is failing, and the reason has expired
+
+Run 'diagnose_workload' on any of these for the evidence and the next step.
+
+incomplete — these lookups failed, and any finding relying on them has had its confidence reduced:
+  · metrics: the server could not find the requested resource (get pods.metrics.k8s.io)
+```
+
+Workloads with no pods are not scanned — there is nothing for a pod-level detector
+to see — and the count is reported so the scanned total is explainable rather than
+looking like workloads went missing.
 
 ## Logs
 
@@ -487,9 +560,7 @@ Notable guard tests, if one fails and you're wondering why it exists:
 
 Not built yet. Listed so the design is legible, not to imply availability.
 
-**v0.1** — one tool left: `cluster_triage`, "what is broken right now", grouped by
-owner rather than per pod, so forty crashlooping pods of one Deployment is one
-finding with a count instead of forty findings.
+**v0.1 is complete.**
 
 **Deliberately not built:** `diff_rollout` was planned as a standalone tool. Its
 semantic template diff lives inside the `rollout.bad-template` detector instead —

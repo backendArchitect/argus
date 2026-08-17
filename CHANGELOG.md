@@ -6,10 +6,20 @@ All notable changes are noted here. The format loosely follows
 
 ## Unreleased
 
-argus is pre-release. `diagnose_workload` and `get_workload_logs` work end to
-end; `cluster_triage` is not built yet.
+argus is pre-release, and the v0.1 tool surface is complete: `diagnose_workload`,
+`get_workload_logs` and `cluster_triage` all work end to end.
 
 ### Added
+
+- **`cluster_triage`** and **`argus triage`** — what is broken right now, across a
+  namespace or the whole cluster. It deliberately does not loop `diagnose_workload`:
+  that would have cost ~1,700 apiserver calls on a 165-workload cluster against a
+  budget of 60, issued exactly when the control plane is already struggling. The data
+  flow is inverted into a fixed handful of cluster-wide list calls, and the detectors
+  are reused unchanged. Measured at 130 workloads in 10 calls, constant in cluster
+  size. Grouped by controller, never by pod; infrastructure findings such as an
+  unhealthy node are collapsed once with a count of affected workloads rather than
+  repeated on every workload that node hosts.
 
 - **`argus update`** — verified, atomic self-update, plus `-check` and `-force`.
   The published SHA-256 must be fetched and must match or the update is abandoned;
