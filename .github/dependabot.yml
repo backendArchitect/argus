@@ -1,0 +1,18 @@
+version: 2
+updates:
+  # client-go moves fast and argus reads production clusters with it, so security
+  # patches here matter more than the usual dependency churn. Grouped so the k8s
+  # libraries bump together — they share a release train and mixing versions
+  # across k8s.io/* is a known source of subtle breakage.
+  - package-ecosystem: gomod
+    directory: /
+    schedule: {interval: weekly}
+    open-pull-requests-limit: 5
+    groups:
+      kubernetes:
+        patterns: ["k8s.io/*", "sigs.k8s.io/*"]
+      mcp:
+        patterns: ["github.com/modelcontextprotocol/*"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: {interval: monthly}
