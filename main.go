@@ -19,6 +19,9 @@ import (
 	"os/signal"
 	"syscall"
 
+	"errors"
+	"io"
+
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"sigs.k8s.io/yaml"
 
@@ -28,36 +31,101 @@ import (
 )
 
 func main() {
-	if err := run(os.Args[1:]); err != nil {
+	if err := run(os.Args[1:], os.Stdout); err != nil {
 		fmt.Fprintln(os.Stderr, "argus:", err)
 		os.Exit(1)
 	}
 }
 
-func run(args []string) error {
-	cmd := "serve"
-	if len(args) > 0 && len(args[0]) > 0 && args[0][0] != '-' {
-		cmd, args = args[0], args[1:]
+// commands is the dispatch table, and also what `argus help` prints. One source so the two cannot
+// disagree — a help text that lists a command the binary does not have is worse than no help.
+var commands = []struct {
+	name, args, blurb string
+	run               func(context.Context, []string, io.Writer) error
+}{
+	{"diagnose", "<workload> -n <ns>", "diagnose a workload: ranked causes, each citing evidence", diagnose},
+	{"logs", "<workload> -n <ns>", "logs for the failing container, with judgment", logs},
+	{"serve", "", "run as an MCP server over stdio", serve},
+	{"capture", "<workload> -n <ns>", "write a diagnosis snapshot as YAML (the fixture generator)", capture},
+	{"version", "", "print the version", cmdVersion},
+}
+
+func run(args []string, stdout io.Writer) error {
+	// Help must work before anything else and must exit 0. Previously `argus --help` fell through
+	// to the serve flagset, printed "Usage of serve:", and exited 1 with "flag: help requested" —
+	// which reads as a crash rather than as help.
+	if len(args) == 0 || args[0] == "help" || args[0] == "-h" || args[0] == "--help" {
+		usage(stdout)
+		return nil
+	}
+	if args[0] == "-v" || args[0] == "--version" {
+		return cmdVersion(context.Background(), nil, stdout)
 	}
 
 	// Interrupt cancels in-flight gathers so we never leave apiserver calls hanging.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	switch cmd {
-	case "serve":
-		return serve(ctx, args)
-	case "capture":
-		return capture(ctx, args)
-	case "diagnose":
-		return diagnose(ctx, args)
-	case "logs":
-		return logs(ctx, args)
-	case "version":
-		fmt.Println(tools.Version)
-		return nil
-	default:
-		return fmt.Errorf("unknown command %q (want: serve, diagnose, logs, capture, version)", cmd)
+	for _, c := range commands {
+		if c.name == args[0] {
+			err := c.run(ctx, args[1:], stdout)
+			// flag already printed the command's usage; -h is not a failure.
+			if errors.Is(err, flag.ErrHelp) {
+				return nil
+			}
+			return err
+		}
+	}
+	return fmt.Errorf("unknown command %q — run 'argus help' for the list", args[0])
+}
+
+func cmdVersion(_ context.Context, _ []string, stdout io.Writer) error {
+	fmt.Fprintln(stdout, tools.Version)
+	return nil
+}
+
+func usage(w io.Writer) {
+	fmt.Fprint(w, `argus — read-only Kubernetes incident diagnosis
+
+One question in, one ranked diagnosis out. argus never writes to your cluster.
+
+Usage:
+  argus <command> [flags]
+
+Commands:
+`)
+	for _, c := range commands {
+		fmt.Fprintf(w, "  %-9s %-20s %s\n", c.name, c.args, c.blurb)
+	}
+	fmt.Fprint(w, `
+Cluster flags, accepted by every command that reads a cluster:
+  -n, -namespace string   namespace (required)
+  -kubeconfig string      path to kubeconfig (default: standard rules, then in-cluster)
+  -context string         kubeconfig context (default: current-context)
+  -timeout duration       deadline for the whole gather (default 10s)
+  -max-calls int          hard cap on apiserver requests per invocation (default 60)
+
+The workload name is fuzzy: "checkout", "checkout-api" and "deploy/checkout-api"
+all resolve, and an ambiguous name lists the candidates instead of guessing.
+
+Examples:
+  argus diagnose checkout-api -n prod
+  argus logs checkout-api -n prod
+  argus capture deploy/checkout-api -n prod > snapshot.yaml
+  claude mcp add argus -- argus serve
+
+Run 'argus <command> -h' for one command's flags.
+Docs: https://github.com/backendArchitect/argus
+`)
+}
+
+// describe gives a subcommand's flagset a real usage block instead of the bare
+// "Usage of diagnose:" that flag prints by default.
+func describe(fs *flag.FlagSet, blurb, example string) {
+	fs.Usage = func() {
+		w := fs.Output()
+		fmt.Fprintf(w, "argus %s — %s\n\nUsage:\n  %s\n\nFlags:\n", fs.Name(), blurb, example)
+		fs.PrintDefaults()
 	}
 }
 
@@ -96,17 +164,20 @@ func clusterFlags(fs *flag.FlagSet) *kube.Options {
 // This is the fixture generator: capture a real broken workload, commit the YAML under
 // testdata/snapshots/, and the detector tests replay it forever with no cluster. Production and
 // tests therefore run the identical gather -> project -> detect path.
-func capture(ctx context.Context, args []string) error {
+func capture(ctx context.Context, args []string, stdout io.Writer) error {
 	fs := flag.NewFlagSet("capture", flag.ContinueOnError)
-	ns := fs.String("n", "", "namespace")
-	fs.StringVar(ns, "namespace", "", "namespace")
+	ns := fs.String("n", "", "namespace (required)")
+	fs.StringVar(ns, "namespace", "", "namespace (required)")
 	opts := clusterFlags(fs)
+	describe(fs, "write a diagnosis snapshot as YAML (the fixture generator)",
+		"argus capture deploy/checkout-api -n prod > snapshot.yaml")
 	positional, err := parseInterleaved(fs, args)
 	if err != nil {
 		return err
 	}
 	if len(positional) != 1 {
-		return fmt.Errorf("usage: argus capture <workload> -n <namespace>")
+		fs.Usage()
+		return fmt.Errorf("capture needs exactly one workload name")
 	}
 
 	c, err := kube.New(*opts)
@@ -131,13 +202,15 @@ func capture(ctx context.Context, args []string) error {
 		fmt.Fprintf(os.Stderr, " (degraded: %d)", len(snap.Degraded))
 	}
 	fmt.Fprintln(os.Stderr)
-	_, err = os.Stdout.Write(out)
+	_, err = stdout.Write(out)
 	return err
 }
 
-func serve(ctx context.Context, args []string) error {
+func serve(ctx context.Context, args []string, _ io.Writer) error {
 	fs := flag.NewFlagSet("serve", flag.ContinueOnError)
 	opts := clusterFlags(fs)
+	describe(fs, "run as an MCP server over stdio",
+		"argus serve      # then: claude mcp add argus -- argus serve")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -151,17 +224,20 @@ func serve(ctx context.Context, args []string) error {
 // Useful for dogfooding and for CI: the same gather -> detect -> rank path the
 // MCP tool uses, so a difference between them would be a bug rather than a
 // second implementation drifting.
-func diagnose(ctx context.Context, args []string) error {
+func diagnose(ctx context.Context, args []string, stdout io.Writer) error {
 	fs := flag.NewFlagSet("diagnose", flag.ContinueOnError)
-	ns := fs.String("n", "", "namespace")
-	fs.StringVar(ns, "namespace", "", "namespace")
+	ns := fs.String("n", "", "namespace (required)")
+	fs.StringVar(ns, "namespace", "", "namespace (required)")
 	opts := clusterFlags(fs)
+	describe(fs, "diagnose a workload: ranked causes, each citing evidence",
+		"argus diagnose checkout-api -n prod")
 	positional, err := parseInterleaved(fs, args)
 	if err != nil {
 		return err
 	}
 	if len(positional) != 1 {
-		return fmt.Errorf("usage: argus diagnose <workload> -n <namespace>")
+		fs.Usage()
+		return fmt.Errorf("diagnose needs exactly one workload name")
 	}
 
 	c, err := kube.New(*opts)
@@ -177,22 +253,24 @@ func diagnose(ctx context.Context, args []string) error {
 		return err
 	}
 
-	fmt.Print(detect.Render(snap, detect.All(snap)))
+	fmt.Fprint(stdout, detect.Render(snap, detect.All(snap)))
 	fmt.Fprintf(os.Stderr, "\n(%d apiserver calls against %s)\n", c.Calls(), c.Context)
 	return nil
 }
 
 // logs fetches container output with the same selection logic the MCP tool uses.
-func logs(ctx context.Context, args []string) error {
+func logs(ctx context.Context, args []string, stdout io.Writer) error {
 	fs := flag.NewFlagSet("logs", flag.ContinueOnError)
-	ns := fs.String("n", "", "namespace")
-	fs.StringVar(ns, "namespace", "", "namespace")
+	ns := fs.String("n", "", "namespace (required)")
+	fs.StringVar(ns, "namespace", "", "namespace (required)")
 	container := fs.String("container", "", "container name (default: the failing one, skipping sidecars)")
 	prev := fs.Bool("previous", false, "read the previous container instance")
 	prevSet := false
 	since := fs.Int64("since", 0, "only logs newer than this many seconds")
 	tail := fs.Int64("tail", 0, "max lines to request from the apiserver")
 	opts := clusterFlags(fs)
+	describe(fs, "logs for the failing container, with judgment",
+		"argus logs checkout-api -n prod")
 	positional, err := parseInterleaved(fs, args)
 	if err != nil {
 		return err
@@ -203,7 +281,8 @@ func logs(ctx context.Context, args []string) error {
 		}
 	})
 	if len(positional) != 1 {
-		return fmt.Errorf("usage: argus logs <workload> -n <namespace>")
+		fs.Usage()
+		return fmt.Errorf("logs needs exactly one workload name")
 	}
 
 	c, err := kube.New(*opts)
@@ -226,7 +305,7 @@ func logs(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Print(kube.RenderLogs(b))
+	fmt.Fprint(stdout, kube.RenderLogs(b))
 	fmt.Fprintf(os.Stderr, "\n(%d apiserver calls against %s)\n", c.Calls(), c.Context)
 	return nil
 }

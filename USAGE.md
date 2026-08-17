@@ -27,14 +27,20 @@ The full reference. For the short version, see [README.md](README.md).
 ## Commands
 
 ```
-argus serve                          MCP server over stdio (the default command)
 argus diagnose <workload> -n <ns>    diagnose from the terminal, no MCP involved
 argus logs     <workload> -n <ns>    logs for the failing container, with judgment
+argus serve                          MCP server over stdio
 argus capture  <workload> -n <ns>    collect a raw snapshot, print YAML to stdout
 argus version                        print the version
+argus help                           the command list and shared flags
 ```
 
-Running `argus` with no arguments is the same as `argus serve`.
+`argus` with no arguments prints help. It deliberately does **not** start the
+server: a bare invocation that silently waits on stdin looks like a hang, and
+`serve` is explicit in every documented integration anyway.
+
+`argus help`, `-h` and `--help` all print the same thing and exit 0. So does
+`argus <command> -h`, for one command's flags.
 
 ### `argus serve`
 
