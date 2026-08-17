@@ -70,21 +70,23 @@ replicas   0/1 ready, 1 updated, 0 available
 findings   1 (1 critical)
 
 1. [critical · confidence 71%] oomkill.limit-too-low
-   Container "app" is being OOM-killed by its own memory limit
-   The kernel killed container "app" for exceeding its memory limit of 32Mi. It is now in
-   CrashLoopBackOff, so it will keep restarting and dying until the limit is raised or its
-   memory use comes down. Current usage is unavailable (the metrics API did not answer), so
-   there is no measured basis for a new limit.
+   Container "app" in oom-victim-7cb68bdb99 is being OOM-killed by its own memory limit
+   The kernel killed container "app" for exceeding its memory limit of 32Mi. It is OOMKilled
+   and not yet ready, so it has not recovered from the kill. Current usage is unavailable (the
+   metrics API did not answer), so there is no measured basis for a new limit; size it from the
+   workload's known working set.
    evidence:
-     · pod/oom-victim-7cb68bdb99-r8tsf (pod.lastState): reason=OOMKilled, exitCode=137, 127s ago
-     · pod/oom-victim-7cb68bdb99-r8tsf (pod.spec): container "app" memory limit is 32Mi
-     · pod/oom-victim-7cb68bdb99-r8tsf (pod.status): restarted 6 times; state CrashLoopBackOff
-   next: get_workload_logs(previous=true) — the current container is in backoff and has
-         produced nothing
+     · pod/oom-victim-7cb68bdb99-4pmxn (pod.lastState):
+         container "app" last terminated with reason=OOMKilled, exitCode=137, 76s ago
+     · pod/oom-victim-7cb68bdb99-4pmxn (pod.spec):
+         container "app" memory limit is 32Mi
+     · pod/oom-victim-7cb68bdb99-4pmxn (pod.status):
+         container "app" has restarted 4 times; current state is OOMKilled
+   next: get_workload_logs(previous=true workload=oom-victim-7cb68bdb99) — the current container
+         restarted after the kill, so the output leading up to it is in the previous instance
 
-incomplete — these lookups failed, and any finding relying on them has had its confidence
-reduced:
-  · metrics: the server could not find the requested resource
+incomplete — these lookups failed, and any finding relying on them has had its confidence reduced:
+  · metrics: the server could not find the requested resource (get pods.metrics.k8s.io)
 
 (13 apiserver calls against kind-argus-test)
 ```

@@ -315,9 +315,7 @@ footer a:hover{color:var(--cyan)}
     <p class="eyebrow">Real output</p>
     <h2>What a diagnosis actually looks like</h2>
     <p class="lede">
-      Captured verbatim from a cluster with a deliberately broken workload — including the honest
-      confidence drop, because that cluster had no metrics API.
-    </p>
+      Generated from real output rather than retyped — this panel is produced from the bytes argus diagnose actually printed, confidence drop included, because that cluster had no metrics API.</p>
   </div>
   <div class="term rv">
     <div class="term-bar">
@@ -593,34 +591,32 @@ findings   1 (1 critical)
 
   /* ---- terminal: real captured output ---- */
   var LINES = [
-    ['c-cmd',  '$ argus diagnose oom-victim -n argus-broken'],
-    ['',       ''],
-    ['c-key',  'DIAGNOSIS  Deployment argus-broken/oom-victim'],
-    ['c-dim',  'replicas   0/1 ready, 1 updated, 0 available'],
-    ['c-dim',  'findings   1 (1 critical)'],
-    ['',       ''],
-    ['c-crit', '1. [critical · confidence 71%] oomkill.limit-too-low'],
-    ['',       '   Container "app" is being OOM-killed by its own memory limit'],
-    ['c-dim',  '   The kernel killed container "app" for exceeding its memory limit of'],
-    ['c-dim',  '   32Mi. It is now in CrashLoopBackOff, so it will keep restarting and'],
-    ['c-dim',  '   dying until the limit is raised or its memory use comes down. Current'],
-    ['c-dim',  '   usage is unavailable (the metrics API did not answer), so there is no'],
-    ['c-dim',  '   measured basis for a new limit.'],
-    ['',       '   evidence:'],
-    ['c-ok',   '     · pod/oom-victim-7cb68bdb99-r8tsf (pod.lastState):'],
-    ['',       '         reason=OOMKilled, exitCode=137, 127s ago'],
-    ['c-ok',   '     · pod/oom-victim-7cb68bdb99-r8tsf (pod.spec):'],
-    ['',       '         container "app" memory limit is 32Mi'],
-    ['c-ok',   '     · pod/oom-victim-7cb68bdb99-r8tsf (pod.status):'],
-    ['',       '         restarted 6 times; current state is CrashLoopBackOff'],
-    ['c-vio',  '   next: get_workload_logs(previous=true) — the current container is in'],
-    ['c-vio',  '         backoff and has produced nothing'],
-    ['',       ''],
-    ['c-warn', 'incomplete — these lookups failed, and any finding relying on them'],
-    ['c-warn', 'has had its confidence reduced:'],
-    ['c-dim',  '  · metrics: the server could not find the requested resource'],
-    ['',       ''],
-    ['c-dim',  '(13 apiserver calls against kind-argus-test)']
+    ["c-cmd", "$ argus diagnose oom-victim -n argus-broken"],
+    ["", ""],
+    ["c-key", "DIAGNOSIS  Deployment argus-broken/oom-victim"],
+    ["c-dim", "replicas   0/1 ready, 1 updated, 0 available"],
+    ["c-dim", "findings   1 (1 critical)"],
+    ["", ""],
+    ["c-crit", "1. [critical · confidence 71%] oomkill.limit-too-low"],
+    ["", "   Container \"app\" in oom-victim-7cb68bdb99 is being OOM-killed by its own memory limit"],
+    ["c-dim", "   The kernel killed container \"app\" for exceeding its memory limit of 32Mi. It is OOMKilled"],
+    ["c-dim", "   and not yet ready, so it has not recovered from the kill. Current usage is unavailable (the"],
+    ["c-dim", "   metrics API did not answer), so there is no measured basis for a new limit; size it from the"],
+    ["c-dim", "   workload's known working set."],
+    ["", "   evidence:"],
+    ["c-ok", "     · pod/oom-victim-7cb68bdb99-4pmxn (pod.lastState):"],
+    ["c-dim", "         container \"app\" last terminated with reason=OOMKilled, exitCode=137, 76s ago"],
+    ["c-ok", "     · pod/oom-victim-7cb68bdb99-4pmxn (pod.spec):"],
+    ["c-dim", "         container \"app\" memory limit is 32Mi"],
+    ["c-ok", "     · pod/oom-victim-7cb68bdb99-4pmxn (pod.status):"],
+    ["c-dim", "         container \"app\" has restarted 4 times; current state is OOMKilled"],
+    ["c-vio", "   next: get_workload_logs(previous=true workload=oom-victim-7cb68bdb99) — the current container"],
+    ["c-vio", "         restarted after the kill, so the output leading up to it is in the previous instance"],
+    ["", ""],
+    ["c-warn", "incomplete — these lookups failed, and any finding relying on them has had its confidence reduced:"],
+    ["c-dim", "  · metrics: the server could not find the requested resource (get pods.metrics.k8s.io)"],
+    ["", ""],
+    ["c-dim", "(13 apiserver calls against kind-argus-test)"]
   ];
   var term = document.getElementById("term");
 

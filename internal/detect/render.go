@@ -140,25 +140,5 @@ func sortedKeys(m map[string]string) []string {
 	return out
 }
 
-// wrap reflows text to ~92 columns with the given indent, so a terminal reader
-// and a model both get something scannable rather than one long line.
-func wrap(s string, indent int) string {
-	const width = 92
-	pad := strings.Repeat(" ", indent)
-	var b strings.Builder
-	col := 0
-	for i, word := range strings.Fields(s) {
-		if i > 0 {
-			if col+1+len(word) > width {
-				b.WriteString("\n" + pad)
-				col = 0
-			} else {
-				b.WriteByte(' ')
-				col++
-			}
-		}
-		b.WriteString(word)
-		col += len(word)
-	}
-	return b.String()
-}
+// wrap delegates to model.Wrap so the diagnosis and log renderers cannot drift apart.
+func wrap(s string, indent int) string { return model.Wrap(s, indent) }

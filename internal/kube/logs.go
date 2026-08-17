@@ -268,9 +268,9 @@ func RenderLogs(b *model.LogBundle) string {
 		instance = "PREVIOUS (the instance that died)"
 	}
 	fmt.Fprintf(&sb, "LOGS  pod/%s  container=%s  instance=%s\n", b.Pod, b.Container, instance)
-	fmt.Fprintf(&sb, "why   %s\n", b.Reason)
+	fmt.Fprintf(&sb, "why   %s\n", model.Wrap(b.Reason, 6))
 	if b.Note != "" {
-		fmt.Fprintf(&sb, "note  %s\n", b.Note)
+		fmt.Fprintf(&sb, "note  %s\n", model.Wrap(b.Note, 6))
 	}
 	sb.WriteString("\n")
 	for _, g := range b.Groups {

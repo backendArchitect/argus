@@ -238,6 +238,33 @@ type PDBView struct {
 	DisruptionsAllowed int32  `json:"disruptions_allowed"`
 }
 
+// Wrap reflows text to ~92 columns with the given indent.
+//
+// Lives here because both the diagnosis renderer and the log renderer need it, and a copy in each
+// is how two renderers start disagreeing about their own output. Long unwrapped lines are not
+// cosmetic: an evidence line ran to 181 characters, which wraps unreadably in a terminal and forced
+// horizontal scrolling everywhere else it was shown.
+func Wrap(s string, indent int) string {
+	const width = 92
+	pad := strings.Repeat(" ", indent)
+	var b strings.Builder
+	col := 0
+	for i, word := range strings.Fields(s) {
+		if i > 0 {
+			if col+1+len(word) > width {
+				b.WriteString("\n" + pad)
+				col = 0
+			} else {
+				b.WriteByte(' ')
+				col++
+			}
+		}
+		b.WriteString(word)
+		col += len(word)
+	}
+	return b.String()
+}
+
 // ParseCPU returns a CPU quantity in millicores, or 0 if unset/unparseable.
 // Detectors do arithmetic on these, so a bad value must degrade to "unknown", never panic.
 func ParseCPU(q string) int64 {
