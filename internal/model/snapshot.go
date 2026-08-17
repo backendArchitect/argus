@@ -324,3 +324,33 @@ type LogGroup struct {
 	FirstSecondsAgo int64 `json:"first_seconds_ago,omitempty"`
 	LastSecondsAgo  int64 `json:"last_seconds_ago,omitempty"`
 }
+
+// TriageGroup is one controller's findings. Triage reports controllers, never pods: forty
+// crashlooping pods of one Deployment is one entry with a count, not forty entries.
+type TriageGroup struct {
+	Kind      string `json:"kind"`
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+	Ready     int32  `json:"ready"`
+	Desired   int32  `json:"desired"`
+	Pods      int    `json:"pods"`
+
+	Findings []Finding `json:"findings"`
+}
+
+// TriageResult is the whole-cluster answer to "what is broken right now".
+type TriageResult struct {
+	Scope     string `json:"scope"`
+	Scanned   int    `json:"workloads_scanned"`
+	Unhealthy int    `json:"workloads_with_findings"`
+
+	// Cluster carries findings that are about shared infrastructure rather than any one workload —
+	// an unhealthy node above all. Reported once here instead of repeated on every workload it
+	// happens to host, which is the same collapsing principle applied one level up.
+	Cluster []Finding `json:"cluster,omitempty"`
+
+	Groups   []TriageGroup `json:"groups"`
+	Omitted  int           `json:"omitted_groups,omitempty"`
+	Degraded []string      `json:"degraded,omitempty"`
+	Notes    []string      `json:"notes,omitempty"`
+}

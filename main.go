@@ -9,6 +9,7 @@
 //	argus capture deploy/foo -n ns # write a Snapshot fixture to stdout
 //	argus diagnose foo -n ns       # run the pipeline from the CLI, no MCP
 //	argus logs foo -n ns           # logs for the failing container, with judgment
+//	argus triage                   # what is broken right now, cluster-wide
 //	argus update                   # replace this binary with the latest release
 package main
 
@@ -47,6 +48,7 @@ var commands = []struct {
 }{
 	{"diagnose", "<workload> -n <ns>", "diagnose a workload: ranked causes, each citing evidence", diagnose},
 	{"logs", "<workload> -n <ns>", "logs for the failing container, with judgment", logs},
+	{"triage", "[-n <ns>]", "what is broken right now, grouped by controller", triage},
 	{"serve", "", "run as an MCP server over stdio", serve},
 	{"capture", "<workload> -n <ns>", "write a diagnosis snapshot as YAML (the fixture generator)", capture},
 	{"version", "", "print the version", cmdVersion},
@@ -84,6 +86,35 @@ func run(args []string, stdout io.Writer) error {
 
 // cmdUpdate replaces the running binary. The checksum verification and the refusal to clobber a
 // local build live in internal/selfupdate; this is only the flag surface.
+// triage scans a namespace or the whole cluster.
+func triage(ctx context.Context, args []string, stdout io.Writer) error {
+	fs := flag.NewFlagSet("triage", flag.ContinueOnError)
+	ns := fs.String("n", "", "namespace (default: every namespace)")
+	fs.StringVar(ns, "namespace", "", "namespace (default: every namespace)")
+	opts := clusterFlags(fs)
+	describe(fs, "what is broken right now, grouped by controller",
+		"argus triage            # or: argus triage -n prod")
+	if _, err := parseInterleaved(fs, args); err != nil {
+		return err
+	}
+
+	c, err := kube.New(*opts)
+	if err != nil {
+		return err
+	}
+	snaps, degraded, notes, err := c.Triage(ctx, *ns)
+	if err != nil {
+		return err
+	}
+	scope := "cluster"
+	if *ns != "" {
+		scope = "namespace/" + *ns
+	}
+	fmt.Fprint(stdout, detect.RenderTriage(detect.Triage(scope, snaps, degraded, notes)))
+	fmt.Fprintf(os.Stderr, "\n(%d apiserver calls against %s)\n", c.Calls(), c.Context)
+	return nil
+}
+
 func cmdUpdate(ctx context.Context, args []string, stdout io.Writer) error {
 	fs := flag.NewFlagSet("update", flag.ContinueOnError)
 	force := fs.Bool("force", false, "replace even a locally-built binary (this discards your local build)")
