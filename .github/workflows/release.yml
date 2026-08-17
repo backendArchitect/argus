@@ -1,0 +1,163 @@
+name: release
+
+# Auto-release on every push to main: test -> selftest -> patch-bump a tag ->
+# cross-compile -> publish a GitHub Release and a GHCR image.
+# Put "[skip release]" in the commit message to skip.
+#
+# The selftest gate is what makes auto-release safe here. argus is a tool people
+# point at production clusters, so "the unit tests passed" is not a sufficient
+# bar: the gate below re-runs the detector suite against the committed fixtures
+# and re-proves the read-only guarantee before anything is tagged.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: {go-version: '1.26', cache: true}
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then echo "not gofmt'd:"; echo "$unformatted"; exit 1; fi
+      - run: go vet ./...
+      - run: go test -race ./...
+
+  selftest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: {go-version: '1.26', cache: true}
+
+      # The read-only guarantee is the single most important property of this
+      # binary. Run it by name so a failure is unmistakable in the log rather
+      # than buried among the other packages.
+      - name: Read-only guarantee must hold
+        run: go test ./internal/kube -run 'TestNoMutatingVerbs|TestGuardActuallyFires' -v
+
+      # Every fixture must still produce exactly its expected detectors — and
+      # crucially, the healthy control must still produce NONE. A detector that
+      # has become eager is a regression that unit tests elsewhere will not catch.
+      - name: Detectors must fire correctly on the committed fixtures
+        run: go test ./internal/detect -run 'TestFixtures|TestEveryFindingCitesEvidence' -v
+
+      - name: Context budget must hold
+        run: go test ./internal/project -run 'TestPodBudget|TestNoEnvValuesEverEmitted' -v
+
+      # A release binary that cannot start is worse than no release. This also
+      # proves the MCP handshake works in the built artifact, not just in tests.
+      - name: Built binary must serve MCP
+        run: |
+          go build -o argus .
+          out=$({ printf '%s\n' \
+            '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"0"}}}' \
+            '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
+            '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"server_info","arguments":{}}}'
+            sleep 1; } | ./argus serve 2>/dev/null)
+          echo "$out"
+          echo "$out" | grep -q '"read_only":true' || { echo "::error::server_info did not report read_only"; exit 1; }
+          echo "$out" | grep -q 'diagnose_workload'  || { echo "::error::diagnose_workload not registered"; exit 1; }
+
+  tag:
+    needs: [test, selftest]
+    if: "!contains(github.event.head_commit.message, '[skip release]')"
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.next.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Compute next tag (patch bump)
+        id: next
+        run: |
+          latest=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+          if [ -z "$latest" ]; then
+            next="v0.1.0"
+          else
+            IFS=. read -r a b c <<< "${latest#v}"
+            next="v${a}.${b}.$((c + 1))"
+          fi
+          echo "tag=$next" >> "$GITHUB_OUTPUT"
+          echo "Next release: $next (previous: ${latest:-none})"
+      - name: Create and push tag
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.next.outputs.tag }}" -m "Release ${{ steps.next.outputs.tag }}"
+          git push origin "${{ steps.next.outputs.tag }}"
+
+  build:
+    needs: tag
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - {goos: linux,   goarch: amd64}
+          - {goos: linux,   goarch: arm64}
+          - {goos: darwin,  goarch: amd64}
+          - {goos: darwin,  goarch: arm64}
+          - {goos: windows, goarch: amd64}
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: "${{ needs.tag.outputs.tag }}"}
+      - uses: actions/setup-go@v5
+        with: {go-version: '1.26'}
+      - name: Build & package
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+          TAG: ${{ needs.tag.outputs.tag }}
+        run: |
+          bin="argus"
+          [ "$GOOS" = "windows" ] && bin="argus.exe"
+          # Stamp the version. Without this every released binary reports
+          # "0.1.0-dev", which makes bug reports unattributable to a release.
+          ldflags="-s -w -X github.com/backendArchitect/argus/internal/tools.Version=${TAG}"
+          go build -trimpath -ldflags="$ldflags" -o "$bin" .
+          name="argus_${TAG}_${GOOS}_${GOARCH}"
+          tar -czf "${name}.tar.gz" "$bin"
+          sha256sum "${name}.tar.gz" > "${name}.tar.gz.sha256"
+      - name: Publish to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.tag.outputs.tag }}
+          generate_release_notes: true
+          files: |
+            *.tar.gz
+            *.tar.gz.sha256
+
+  docker:
+    needs: tag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: "${{ needs.tag.outputs.tag }}"}
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Lowercase image name        # GHCR repository names must be lowercase
+        id: img
+        run: echo "name=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: VERSION=${{ needs.tag.outputs.tag }}
+          tags: |
+            ${{ steps.img.outputs.name }}:${{ needs.tag.outputs.tag }}
+            ${{ steps.img.outputs.name }}:latest
