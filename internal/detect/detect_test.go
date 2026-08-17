@@ -28,6 +28,8 @@ var fixtures = map[string][]string{
 	"bad-rollout":        {"rollout.bad-template", "oomkill.limit-too-low"},
 	"healthy":            {},
 	"node-pressure":      {"node.unhealthy-host"},
+	// Regression: a deliberately idle workload must produce silence, not five criticals.
+	"scaled-to-zero": {},
 }
 
 func load(t *testing.T, name string) *model.Snapshot {
