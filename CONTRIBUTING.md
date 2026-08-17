@@ -13,8 +13,18 @@ You need **Go 1.26+**. No C compiler, no cluster required to build or test.
 ```sh
 git clone https://github.com/backendArchitect/argus
 cd argus
-go build ./...
-go install .        # drops an `argus` binary in $GOBIN
+go build ./...      # compiles, but leaves nothing on your PATH
+go install .        # this is the one that makes `argus` runnable
+```
+
+`go build` alone drops the binary in the working directory, where it is gitignored
+and not on your PATH — so `argus diagnose ...` will still be "command not found".
+Use `go install .`, and check that Go's bin directory is on your PATH:
+
+```sh
+go env GOPATH               # the binary lands in $GOPATH/bin (or $GOBIN if set)
+command -v argus            # should print a path
+argus version
 ```
 
 ## Run tests

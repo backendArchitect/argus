@@ -10,7 +10,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 go build -trimpath \
-      -ldflags="-s -w -X github.com/backendArchitect/argus/internal/tools.Version=${VERSION}" \
+      -ldflags="-s -w -X github.com/backendArchitect/argus/internal/tools.injected=${VERSION}" \
       -o /out/argus .
 
 FROM gcr.io/distroless/static-debian12:nonroot
