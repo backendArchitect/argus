@@ -1,0 +1,674 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>argus — one question in, one ranked diagnosis out</title>
+<meta name="description" content="A read-only Kubernetes incident-diagnosis MCP server. Correlates twelve resource kinds in one pass and returns ranked, evidence-backed findings instead of a pile of YAML.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%230b0f1a'/%3E%3Ccircle cx='16' cy='16' r='7' fill='none' stroke='%2338e8ff' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='2.5' fill='%2338e8ff'/%3E%3C/svg%3E">
+<meta property="og:title" content="argus — Kubernetes incident diagnosis">
+<meta property="og:description" content="One question in, one ranked diagnosis out. Read-only, evidence-backed, context-disciplined.">
+<meta property="og:type" content="website">
+<style>
+:root{
+  --bg:#070a12; --bg-2:#0b0f1a; --panel:#0e1422; --panel-2:#121a2c;
+  --line:#1c2740; --line-2:#26355a;
+  --fg:#e6edf7; --fg-dim:#94a3bd; --fg-mute:#64748b;
+  --cyan:#38e8ff; --violet:#a78bfa; --amber:#fbbf24; --rose:#fb7185; --green:#34d399;
+  --glow:0 0 40px rgba(56,232,255,.18);
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --maxw:1100px;
+}
+:root[data-theme="light"]{
+  --bg:#f6f8fc; --bg-2:#eef2f9; --panel:#ffffff; --panel-2:#f3f6fb;
+  --line:#dbe3f0; --line-2:#c3d0e6;
+  --fg:#0d1526; --fg-dim:#475069; --fg-mute:#6b7690;
+  --cyan:#0891b2; --violet:#7c3aed; --amber:#b45309; --rose:#e11d48; --green:#059669;
+  --glow:0 0 40px rgba(8,145,178,.10);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);
+  line-height:1.65;-webkit-font-smoothing:antialiased;overflow-x:hidden;
+}
+/* ---------- ambient background ---------- */
+.bg-grid{
+  position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:
+    linear-gradient(to right,var(--line) 1px,transparent 1px),
+    linear-gradient(to bottom,var(--line) 1px,transparent 1px);
+  background-size:64px 64px;
+  mask-image:radial-gradient(ellipse 90% 60% at 50% 0%,#000 20%,transparent 75%);
+  opacity:.5;
+}
+.bg-orb{
+  position:fixed;border-radius:50%;filter:blur(90px);z-index:0;pointer-events:none;opacity:.30;
+  animation:drift 26s ease-in-out infinite alternate;
+}
+.orb-a{width:520px;height:520px;background:radial-gradient(circle,var(--cyan),transparent 65%);top:-160px;left:-120px}
+.orb-b{width:460px;height:460px;background:radial-gradient(circle,var(--violet),transparent 65%);top:220px;right:-140px;animation-delay:-9s}
+@keyframes drift{from{transform:translate3d(0,0,0) scale(1)}to{transform:translate3d(60px,50px,0) scale(1.14)}}
+
+.wrap{position:relative;z-index:1;max-width:var(--maxw);margin:0 auto;padding:0 24px}
+
+/* ---------- nav ---------- */
+nav{
+  position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);
+  background:color-mix(in srgb,var(--bg) 78%,transparent);
+  border-bottom:1px solid var(--line);
+}
+.nav-in{max-width:var(--maxw);margin:0 auto;padding:12px 24px;display:flex;align-items:center;gap:20px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:-.02em;font-size:1.05rem}
+.nav-links{margin-left:auto;display:flex;gap:22px;align-items:center}
+.nav-links a{color:var(--fg-dim);text-decoration:none;font-size:.9rem;transition:color .2s}
+.nav-links a:hover{color:var(--cyan)}
+.theme-btn{
+  background:var(--panel);border:1px solid var(--line);color:var(--fg-dim);
+  border-radius:8px;padding:5px 9px;cursor:pointer;font-size:.95rem;line-height:1;transition:all .2s
+}
+.theme-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+@media(max-width:720px){.nav-links a[data-opt]{display:none}}
+
+/* ---------- eye ---------- */
+.eye{width:34px;height:34px;flex:none}
+.iris-ring{transform-origin:50% 50%;animation:spin 14s linear infinite}
+.iris-ring.rev{animation:spin 22s linear infinite reverse}
+@keyframes spin{to{transform:rotate(360deg)}}
+.pupil{animation:pulse 3.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;r:3}50%{opacity:.55;r:4.2}}
+
+/* ---------- hero ---------- */
+header{padding:88px 0 56px;text-align:center}
+.badge{
+  display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;
+  border:1px solid var(--line-2);background:var(--panel);font-family:var(--mono);
+  font-size:.74rem;letter-spacing:.09em;text-transform:uppercase;color:var(--cyan);
+  margin-bottom:26px;box-shadow:var(--glow)
+}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:blink 2s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(52,211,153,.6)}50%{opacity:.5;box-shadow:0 0 0 6px rgba(52,211,153,0)}}
+h1{
+  font-size:clamp(2.5rem,6.4vw,4.5rem);line-height:1.04;letter-spacing:-.035em;
+  margin:0 0 20px;font-weight:800
+}
+.grad{
+  background:linear-gradient(100deg,var(--cyan),var(--violet) 55%,var(--cyan));
+  background-size:220% auto;-webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;animation:sheen 7s linear infinite
+}
+@keyframes sheen{to{background-position:220% center}}
+.sub{font-size:clamp(1.05rem,2.1vw,1.28rem);color:var(--fg-dim);max-width:660px;margin:0 auto 34px}
+.cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:14px}
+.btn{
+  display:inline-flex;align-items:center;gap:9px;padding:12px 22px;border-radius:11px;
+  font-weight:600;font-size:.95rem;text-decoration:none;transition:transform .18s,box-shadow .18s,border-color .18s
+}
+.btn-1{background:linear-gradient(100deg,var(--cyan),var(--violet));color:#04070f;box-shadow:var(--glow)}
+.btn-1:hover{transform:translateY(-2px);box-shadow:0 10px 40px rgba(56,232,255,.36)}
+.btn-2{background:var(--panel);border:1px solid var(--line-2);color:var(--fg)}
+.btn-2:hover{border-color:var(--cyan);transform:translateY(-2px)}
+.hero-note{font-family:var(--mono);font-size:.78rem;color:var(--fg-mute)}
+
+/* ---------- reveal ----------
+   Gated on .js, added by the script itself. Without this the entire page below
+   the hero sits at opacity:0 and a reader with JS blocked, a failed script, or a
+   crawler sees a blank document. Motion is an enhancement; the content is not. */
+.js .rv{opacity:0;transform:translateY(26px);transition:opacity .7s cubic-bezier(.2,.7,.3,1),transform .7s cubic-bezier(.2,.7,.3,1)}
+.js .rv.in{opacity:1;transform:none}
+
+/* ---------- sections ---------- */
+section{padding:64px 0;position:relative;z-index:1}
+.eyebrow{
+  font-family:var(--mono);font-size:.74rem;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--cyan);margin-bottom:10px
+}
+h2{font-size:clamp(1.7rem,3.5vw,2.4rem);letter-spacing:-.025em;margin:0 0 14px;font-weight:750}
+.lede{color:var(--fg-dim);max-width:680px;margin:0 0 32px;font-size:1.03rem}
+
+/* ---------- convergence diagram ---------- */
+.conv{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:8px;overflow:hidden}
+.conv svg{width:100%;height:auto;display:block}
+.spoke{stroke:var(--line-2);stroke-width:1.2;fill:none}
+.spoke-live{
+  stroke:var(--cyan);stroke-width:1.6;fill:none;
+  stroke-dasharray:5 170;stroke-linecap:round;
+  animation:flow 3.4s linear infinite
+}
+@keyframes flow{from{stroke-dashoffset:175}to{stroke-dashoffset:0}}
+.kind{font-family:var(--mono);font-size:9.5px;fill:var(--fg-dim)}
+.node{fill:var(--panel-2);stroke:var(--line-2);stroke-width:1}
+.core{fill:none;stroke:var(--cyan);stroke-width:1.6}
+.core-2{fill:none;stroke:var(--violet);stroke-width:1.2;stroke-dasharray:3 5;transform-origin:340px 95px;animation:spin 12s linear infinite}
+.verdict{font-family:var(--mono);font-size:11px;fill:var(--cyan);font-weight:700}
+
+/* ---------- terminal ---------- */
+.term{
+  background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;
+  box-shadow:0 22px 60px rgba(0,0,0,.34)
+}
+.term-bar{
+  display:flex;align-items:center;gap:8px;padding:11px 15px;
+  background:var(--panel-2);border-bottom:1px solid var(--line)
+}
+.tl{width:11px;height:11px;border-radius:50%}
+.term-title{margin-left:9px;font-family:var(--mono);font-size:.76rem;color:var(--fg-mute)}
+.term-body{
+  padding:18px;font-family:var(--mono);font-size:.79rem;line-height:1.72;
+  overflow-x:auto;white-space:pre;min-height:430px;color:var(--fg-dim)
+}
+.term-body::-webkit-scrollbar{height:8px}
+.term-body::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:4px}
+.c-cmd{color:var(--fg)}.c-key{color:var(--cyan);font-weight:600}
+.c-crit{color:var(--rose);font-weight:600}.c-warn{color:var(--amber)}
+.c-ok{color:var(--green)}.c-dim{color:var(--fg-mute)}.c-vio{color:var(--violet)}
+.caret{display:inline-block;width:8px;height:1.05em;background:var(--cyan);vertical-align:-2px;animation:caret 1.05s step-end infinite}
+@keyframes caret{50%{opacity:0}}
+
+/* ---------- comparison ---------- */
+.cmp{width:100%;border-collapse:collapse;font-size:.92rem}
+.cmp th,.cmp td{padding:13px 14px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.cmp thead th{font-family:var(--mono);font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--fg-mute)}
+.cmp th:first-child{color:var(--fg-dim);font-weight:600}
+.cmp .them{color:var(--fg-mute)}
+.cmp .us{color:var(--fg);font-weight:600}
+.cmp tbody tr{transition:background .2s}
+.cmp tbody tr:hover{background:var(--panel)}
+.tbl-wrap{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:4px 14px}
+
+/* ---------- cards ---------- */
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(268px,1fr))}
+.card{
+  background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;
+  position:relative;overflow:hidden;transition:transform .25s,border-color .25s
+}
+.card::before{
+  content:"";position:absolute;inset:0;border-radius:14px;padding:1px;
+  background:linear-gradient(130deg,var(--cyan),transparent 42%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;opacity:0;transition:opacity .25s
+}
+.card:hover{transform:translateY(-4px);border-color:var(--line-2)}
+.card:hover::before{opacity:1}
+.card h3{margin:0 0 8px;font-size:1rem;font-family:var(--mono);color:var(--cyan);font-weight:600}
+.card p{margin:0;color:var(--fg-dim);font-size:.9rem}
+.card .sig{
+  display:block;margin-top:11px;font-family:var(--mono);font-size:.74rem;color:var(--fg-mute);
+  border-left:2px solid var(--line-2);padding-left:9px
+}
+
+/* ---------- stats ---------- */
+.stats{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;text-align:center}
+.stat .n{font-family:var(--mono);font-size:2.2rem;font-weight:700;letter-spacing:-.03em;
+  background:linear-gradient(120deg,var(--cyan),var(--violet));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.stat .l{font-size:.84rem;color:var(--fg-dim);margin-top:5px}
+.stat .was{font-family:var(--mono);font-size:.72rem;color:var(--fg-mute);margin-top:7px}
+
+/* ---------- safety ---------- */
+.safe{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
+.safe-item{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--green);border-radius:11px;padding:18px}
+.safe-item h4{margin:0 0 6px;font-size:.95rem}
+.safe-item p{margin:0;font-size:.88rem;color:var(--fg-dim)}
+.safe-item code{font-family:var(--mono);font-size:.8rem;color:var(--cyan);background:var(--panel-2);padding:1px 5px;border-radius:4px}
+
+/* ---------- install ---------- */
+.code{
+  background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:15px 17px;
+  font-family:var(--mono);font-size:.85rem;overflow-x:auto;position:relative;color:var(--fg)
+}
+.code .p{color:var(--cyan)}
+.copy{
+  position:absolute;top:9px;right:9px;background:var(--panel-2);border:1px solid var(--line);
+  color:var(--fg-mute);border-radius:7px;padding:4px 9px;font-size:.72rem;cursor:pointer;
+  font-family:var(--mono);transition:all .2s
+}
+.copy:hover{color:var(--cyan);border-color:var(--cyan)}
+
+.roadmap{list-style:none;padding:0;margin:0}
+.roadmap li{display:flex;gap:13px;align-items:flex-start;padding:11px 0;border-bottom:1px solid var(--line)}
+.pill{font-family:var(--mono);font-size:.68rem;padding:3px 9px;border-radius:999px;white-space:nowrap;margin-top:2px}
+.pill-now{background:rgba(52,211,153,.14);color:var(--green);border:1px solid rgba(52,211,153,.3)}
+.pill-next{background:rgba(56,232,255,.12);color:var(--cyan);border:1px solid rgba(56,232,255,.28)}
+.pill-later{background:var(--panel-2);color:var(--fg-mute);border:1px solid var(--line-2)}
+
+footer{border-top:1px solid var(--line);padding:36px 0;color:var(--fg-mute);font-size:.87rem}
+.foot-in{display:flex;gap:20px;flex-wrap:wrap;align-items:center}
+footer a{color:var(--fg-dim);text-decoration:none}
+footer a:hover{color:var(--cyan)}
+
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+  .js .rv{opacity:1;transform:none}
+  html{scroll-behavior:auto}
+}
+</style>
+</head>
+<body>
+<div class="bg-grid"></div><div class="bg-orb orb-a"></div><div class="bg-orb orb-b"></div>
+
+<nav>
+  <div class="nav-in">
+    <span class="brand">
+      <svg class="eye" viewBox="0 0 32 32" aria-hidden="true">
+        <circle cx="16" cy="16" r="15" fill="var(--panel)" stroke="var(--line-2)"/>
+        <g class="iris-ring"><circle cx="16" cy="16" r="9" fill="none" stroke="var(--cyan)" stroke-width="1.3" stroke-dasharray="4 3" opacity=".8"/></g>
+        <g class="iris-ring rev"><circle cx="16" cy="16" r="6" fill="none" stroke="var(--violet)" stroke-width="1.1" stroke-dasharray="2 4"/></g>
+        <circle class="pupil" cx="16" cy="16" r="3" fill="var(--cyan)"/>
+      </svg>
+      argus
+    </span>
+    <span class="nav-links">
+      <a href="#how" data-opt>How it works</a>
+      <a href="#detectors" data-opt>Detectors</a>
+      <a href="#safety" data-opt>Safety</a>
+      <a href="#install">Install</a>
+      <a href="https://github.com/backendArchitect/argus">GitHub</a>
+      <button class="theme-btn" id="theme" aria-label="Toggle colour theme">◐</button>
+    </span>
+  </div>
+</nav>
+
+<header class="wrap">
+  <span class="badge"><span class="dot"></span>read-only · evidence-backed · pre-release</span>
+  <h1>One question in.<br><span class="grad">One ranked diagnosis out.</span></h1>
+  <p class="sub">
+    argus is a Kubernetes incident-diagnosis MCP server. Ask <em>“why is checkout-api broken?”</em>
+    and it correlates twelve resource kinds in a single read-only pass, then answers with ranked
+    causes — each one citing the evidence it used.
+  </p>
+  <div class="cta">
+    <a class="btn btn-1" href="#install">Get started →</a>
+    <a class="btn btn-2" href="https://github.com/backendArchitect/argus">View source</a>
+  </div>
+  <p class="hero-note">Go 1.26 · MIT · no writes, enforced by the build</p>
+</header>
+
+<section id="how" class="wrap">
+  <div class="rv">
+    <p class="eyebrow">The thesis</p>
+    <h2>Correlation belongs in the server, not the context window</h2>
+    <p class="lede">
+      Every other Kubernetes MCP server is <code>kubectl</code> with a JSON schema stapled on:
+      <code>get_pods</code>, <code>describe_pod</code>, <code>get_logs</code>. That pushes the
+      correlation onto the model across ten round-trips, each dumping kilobytes of
+      <code>managedFields</code> into the window. By pod four the context is noise, and a model
+      reasoning from noise guesses.
+    </p>
+  </div>
+
+  <div class="conv rv">
+    <svg viewBox="0 0 680 246" role="img" aria-label="Twelve Kubernetes resource kinds converging into one ranked finding">
+      <g id="spokes"></g>
+      <circle class="core" cx="340" cy="95" r="30"/>
+      <circle class="core-2" cx="340" cy="95" r="39"/>
+      <circle cx="340" cy="95" r="5" fill="var(--cyan)" class="pupil"/>
+      <text class="verdict" x="340" y="212" text-anchor="middle">1 ranked diagnosis</text>
+      <text class="kind" x="340" y="228" text-anchor="middle" fill="var(--fg-mute)">with mandatory evidence</text>
+    </svg>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="rv">
+    <p class="eyebrow">Real output</p>
+    <h2>What a diagnosis actually looks like</h2>
+    <p class="lede">
+      Captured verbatim from a cluster with a deliberately broken workload — including the honest
+      confidence drop, because that cluster had no metrics API.
+    </p>
+  </div>
+  <div class="term rv">
+    <div class="term-bar">
+      <span class="tl" style="background:#fb7185"></span>
+      <span class="tl" style="background:#fbbf24"></span>
+      <span class="tl" style="background:#34d399"></span>
+      <span class="term-title">argus diagnose</span>
+    </div>
+    <div class="term-body" id="term"><noscript>$ argus diagnose oom-victim -n argus-broken
+
+DIAGNOSIS  Deployment argus-broken/oom-victim
+findings   1 (1 critical)
+
+1. [critical · confidence 71%] oomkill.limit-too-low
+   Container "app" is being OOM-killed by its own memory limit
+   evidence: pod.lastState reason=OOMKilled, exitCode=137
+             pod.spec     memory limit is 32Mi</noscript></div>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="rv">
+    <p class="eyebrow">The difference</p>
+    <h2>Resource-shaped vs question-shaped</h2>
+  </div>
+  <div class="tbl-wrap rv">
+    <table class="cmp">
+      <thead><tr><th></th><th>Typical k8s MCP server</th><th style="color:var(--cyan)">argus</th></tr></thead>
+      <tbody>
+        <tr><th>Tool surface</th><td class="them">40–100+, mirroring kubectl</td><td class="us">3, one per SRE question</td></tr>
+        <tr><th>Correlation</th><td class="them">the model does it, over many calls</td><td class="us">server-side, in one call</td></tr>
+        <tr><th>Output</th><td class="them">raw objects to interpret</td><td class="us">ranked findings, evidence mandatory</td></tr>
+        <tr><th>Context per pod</th><td class="them">2,000+ tokens</td><td class="us">under 400, enforced by test</td></tr>
+        <tr><th>Repeated events</th><td class="them">one line each</td><td class="us">deduplicated, blast radius kept</td></tr>
+        <tr><th>Confidence</th><td class="them">absent, or implied certainty</td><td class="us">stated, and lowered on partial data</td></tr>
+        <tr><th>Writes</th><td class="them">usually available, sometimes gated</td><td class="us">none — no mutating call site exists</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="rv">
+    <p class="eyebrow">Measured, not estimated</p>
+    <h2>Context discipline</h2>
+    <p class="lede">From one real production Deployment with 93 environment variables and 11 ReplicaSets.</p>
+  </div>
+  <div class="stats rv">
+    <div class="stat"><div class="n" data-to="326">0</div><div class="l">tokens per pod</div><div class="was">was 946 · budget 400</div></div>
+    <div class="stat"><div class="n" data-to="3300" data-fmt="k">0</div><div class="l">tokens per snapshot</div><div class="was">was ~10,400</div></div>
+    <div class="stat"><div class="n" data-to="13">0</div><div class="l">apiserver calls</div><div class="was">hard cap 60</div></div>
+    <div class="stat"><div class="n" data-to="16" data-fmt="s">0</div><div class="l">test suite, no cluster</div><div class="was">detectors are pure functions</div></div>
+  </div>
+</section>
+
+<section id="detectors" class="wrap">
+  <div class="rv">
+    <p class="eyebrow">The correlation engine</p>
+    <h2>Six detectors that name a cause</h2>
+    <p class="lede">
+      Each is a pure function over a snapshot, so each is replayable against a committed fixture.
+      Every fixture asserts its detector fires <em>and that no others do</em> — the negative half is
+      the half that matters, because a tool that reports three wrong causes during an incident
+      costs more time than it saves.
+    </p>
+  </div>
+  <div class="grid rv">
+    <div class="card"><h3>oomkill.limit-too-low</h3><p>The kernel killed it for exceeding its own limit — with a suggested new limit when usage data supports one.</p><span class="sig">lastState.reason=OOMKilled + limit + peak usage</span></div>
+    <div class="card"><h3>rollout.bad-template</h3><p>The new revision is failing and the previous one was healthy. Reports the fields that changed between them.</p><span class="sig">RS health pair + semantic template diff</span></div>
+    <div class="card"><h3>image.pull-*</h3><p>Distinguishes a typo'd tag from a missing pull secret, refused credentials, and a registry rate limit — four causes, one symptom.</p><span class="sig">waiting.reason + the runtime's own error text</span></div>
+    <div class="card"><h3>endpoints.*</h3><p>Tells a selector typo (matches nothing) apart from a readiness failure (matches pods, none ready). Invisible to <code>kubectl get</code>.</p><span class="sig">selector match count vs endpoint readiness</span></div>
+    <div class="card"><h3>probe.readiness-misconfigured</h3><p>Running, alive, not crashing — and still never ready. Compares the probe's real deadline against observed uptime.</p><span class="sig">initialDelay + period×failureThreshold</span></div>
+    <div class="card"><h3>node.unhealthy-host</h3><p><strong>Widens scope.</strong> If the node is the cause, it says so and suppresses the per-workload symptoms rather than reporting one cause three times.</p><span class="sig">node conditions + affected pod set</span></div>
+  </div>
+</section>
+
+<section id="safety" class="wrap">
+  <div class="rv">
+    <p class="eyebrow">Safety</p>
+    <h2>Read-only, and not on the honour system</h2>
+    <p class="lede">
+      The usual advice is “enforce read-only through RBAC, not in code.” That is correct for an
+      in-cluster deployment and <em>false</em> for how you will actually run this — from your own
+      kubeconfig, where RBAC grants you everything. So the binary holds the line instead.
+    </p>
+  </div>
+  <div class="safe rv">
+    <div class="safe-item">
+      <h4>No mutating call site</h4>
+      <p>A test walks the entire source AST and fails the build on any call to <code>Create</code>, <code>Update</code>, <code>Patch</code>, <code>Delete</code>, <code>Apply</code> or <code>Evict</code> — with a companion test proving the walk can actually fail.</p>
+    </div>
+    <div class="safe-item">
+      <h4>Prompt injection can mislead, never act</h4>
+      <p>Log and event text is user-controlled and reaches model context. argus frames it as untrusted data — but the real mitigation is structural: there is no mutation path to reach.</p>
+    </div>
+    <div class="safe-item">
+      <h4>Secrets never leave</h4>
+      <p><code>Secret</code> objects are never read. Environment variable <em>values</em> are never projected — only key names, which is all a detector needs. Verified by test.</p>
+    </div>
+    <div class="safe-item">
+      <h4>It cannot flood your control plane</h4>
+      <p>A hard apiserver call budget lives in an <code>http.RoundTripper</code>, counting every request and retry. A diagnostic tool is run <em>during</em> an incident.</p>
+    </div>
+  </div>
+</section>
+
+<section id="install" class="wrap">
+  <div class="rv">
+    <p class="eyebrow">Install</p>
+    <h2>Two commands</h2>
+  </div>
+  <div class="rv" style="display:grid;gap:14px">
+    <div class="code"><button class="copy" data-copy="go install github.com/backendArchitect/argus@latest">copy</button><span class="p">$</span> go install github.com/backendArchitect/argus@latest</div>
+    <div class="code"><button class="copy" data-copy="claude mcp add argus -- argus serve">copy</button><span class="p">$</span> claude mcp add argus -- argus serve</div>
+    <p class="lede" style="margin:6px 0 0">
+      Or drive it straight from a terminal, no MCP involved:
+    </p>
+    <div class="code"><button class="copy" data-copy="argus diagnose checkout-api -n prod">copy</button><span class="p">$</span> argus diagnose checkout-api <span style="color:var(--fg-mute)">-n prod</span></div>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="rv">
+    <p class="eyebrow">Roadmap</p>
+    <h2>Honest about what exists</h2>
+  </div>
+  <ul class="roadmap rv">
+    <li><span class="pill pill-now">shipping</span><span><strong>diagnose_workload</strong> · six detectors · fuzzy resolution · projection &amp; event dedup · <code>capture</code> fixtures · read-only build gate</span></li>
+    <li><span class="pill pill-next">v0.1</span><span><strong>cluster_triage</strong> — what is broken right now, grouped by owner, not per pod</span></li>
+    <li><span class="pill pill-next">v0.1</span><span><strong>get_workload_logs</strong> — auto-selects the failing container, defaults to <code>previous</code> on crashloop, groups stack traces, budgets by tokens</span></li>
+    <li><span class="pill pill-later">v0.2</span><span><strong>explain_pending</strong> · <strong>trace_service_path</strong> · informer cache</span></li>
+    <li><span class="pill pill-later">v0.3</span><span>GKE Cloud Logging fallback for evicted pods · <strong>compare_environments</strong> · <strong>check_reachability</strong></span></li>
+    <li><span class="pill pill-later">maybe never</span><span>Mutations. That is where the liability is; read-only diagnosis is where nearly all the value is.</span></li>
+  </ul>
+</section>
+
+<footer>
+  <div class="wrap foot-in">
+    <span>MIT · built for real 3am incidents</span>
+    <span style="margin-left:auto;display:flex;gap:18px">
+      <a href="https://github.com/backendArchitect/argus">GitHub</a>
+      <a href="https://github.com/backendArchitect/argus/blob/main/USAGE.md">Docs</a>
+      <a href="https://github.com/backendArchitect/argus/blob/main/SECURITY.md">Security</a>
+    </span>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+  var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // Opt in to the reveal animation only once the script is running, so the page
+  // is fully readable if it never does.
+  document.documentElement.classList.add("js");
+
+  /* ---- theme ---- */
+  var root = document.documentElement, btn = document.getElementById("theme");
+  try{ var saved = localStorage.getItem("argus-theme"); if(saved) root.setAttribute("data-theme", saved); }catch(e){}
+  btn.addEventListener("click", function(){
+    var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    try{ localStorage.setItem("argus-theme", next); }catch(e){}
+  });
+
+  /* ---- convergence spokes: twelve kinds feeding one core ---- */
+  var kinds = ["Deployment","ReplicaSet","Pods","Events","Metrics","Service",
+               "EndpointSlice","Node","HPA","PDB","Probes","Conditions"];
+  var g = document.getElementById("spokes"), cx = 340, cy = 95, ns = "http://www.w3.org/2000/svg";
+  kinds.forEach(function(k, i){
+    var half = kinds.length / 2;
+    var left = i < half;
+    var row  = left ? i : i - half;
+    // Columns are inset far enough that the longest label ("EndpointSlice")
+    // still fits inside the viewBox — it clipped at the original x.
+    var x = left ? 140 : 540;
+    var y = 20 + row * 30;
+
+    var path = document.createElementNS(ns, "path");
+    var d = "M" + x + " " + y + " C " + (left ? x+90 : x-90) + " " + y + ", " +
+            (left ? cx-80 : cx+80) + " " + cy + ", " + (left ? cx-31 : cx+31) + " " + cy;
+    path.setAttribute("d", d);
+    path.setAttribute("class", "spoke");
+    g.appendChild(path);
+
+    if(!reduce){
+      var live = path.cloneNode();
+      live.setAttribute("class", "spoke-live");
+      live.style.animationDelay = (i * 0.26) + "s";
+      g.appendChild(live);
+    }
+
+    var dot = document.createElementNS(ns, "circle");
+    dot.setAttribute("cx", x); dot.setAttribute("cy", y); dot.setAttribute("r", 3.4);
+    dot.setAttribute("class", "node");
+    g.appendChild(dot);
+
+    var label = document.createElementNS(ns, "text");
+    label.setAttribute("x", left ? x - 9 : x + 9);
+    label.setAttribute("y", y + 3.4);
+    label.setAttribute("text-anchor", left ? "end" : "start");
+    label.setAttribute("class", "kind");
+    label.textContent = k;
+    g.appendChild(label);
+  });
+
+  /* ---- scroll reveal ----
+     Two safety nets, because the reveal starts at opacity:0 and anything that
+     stops it finishing leaves the page blank rather than merely unanimated:
+       1. no IntersectionObserver at all -> reveal everything immediately;
+       2. observer present but never firing (seen in headless renderers and some
+          embedded webviews) -> a timer reveals everything regardless.
+     Content must never depend on an animation completing. */
+  var revealables = document.querySelectorAll(".rv");
+  function revealAll(){ revealables.forEach(function(el){ el.classList.add("in"); }); }
+
+  if(!("IntersectionObserver" in window) || reduce){
+    revealAll();
+  } else {
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add("in"); io.unobserve(e.target); } });
+    }, {threshold:.12, rootMargin:"0px 0px -40px 0px"});
+    revealables.forEach(function(el){ io.observe(el); });
+    setTimeout(revealAll, 2500);
+  }
+
+  /* ---- counters ---- */
+  var counted = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(!e.isIntersecting) return;
+      counted.unobserve(e.target);
+      var el = e.target, to = +el.dataset.to, fmt = el.dataset.fmt;
+      var render = function(v){
+        if(fmt === "k") return (v/1000).toFixed(1) + "k";
+        if(fmt === "s") return (v/10).toFixed(1) + "s";
+        return String(Math.round(v));
+      };
+      if(reduce){ el.textContent = render(to); el.dataset.done = "1"; return; }
+      var t0 = performance.now(), dur = 1100;
+      (function step(now){
+        var p = Math.min(1, (now - t0) / dur);
+        el.textContent = render(to * (1 - Math.pow(1 - p, 3)));
+        if(p < 1){ requestAnimationFrame(step); }
+        else { el.textContent = render(to); el.dataset.done = "1"; }
+      })(t0);
+    });
+  }, {threshold:.5});
+  document.querySelectorAll(".stat .n").forEach(function(el){ counted.observe(el); });
+  // Failsafe: force the true value on anything that has not finished counting.
+  //
+  // Checking for "0" was not enough — a rAF loop interrupted by a backgrounded
+  // tab or a throttled renderer leaves a PARTIAL number on screen, e.g. "47"
+  // where the real figure is 326. A stalled animation is cosmetic; a wrong
+  // number presented as a measurement is not.
+  setTimeout(function(){
+    document.querySelectorAll(".stat .n").forEach(function(el){
+      if(el.dataset.done) return;
+      var to = +el.dataset.to, fmt = el.dataset.fmt;
+      el.textContent = fmt === "k" ? (to/1000).toFixed(1)+"k" : fmt === "s" ? (to/10).toFixed(1)+"s" : String(to);
+      el.dataset.done = "1";
+    });
+  }, 3000);
+
+  /* ---- terminal: real captured output ---- */
+  var LINES = [
+    ['c-cmd',  '$ argus diagnose oom-victim -n argus-broken'],
+    ['',       ''],
+    ['c-key',  'DIAGNOSIS  Deployment argus-broken/oom-victim'],
+    ['c-dim',  'replicas   0/1 ready, 1 updated, 0 available'],
+    ['c-dim',  'findings   1 (1 critical)'],
+    ['',       ''],
+    ['c-crit', '1. [critical · confidence 71%] oomkill.limit-too-low'],
+    ['',       '   Container "app" is being OOM-killed by its own memory limit'],
+    ['c-dim',  '   The kernel killed container "app" for exceeding its memory limit of'],
+    ['c-dim',  '   32Mi. It is now in CrashLoopBackOff, so it will keep restarting and'],
+    ['c-dim',  '   dying until the limit is raised or its memory use comes down. Current'],
+    ['c-dim',  '   usage is unavailable (the metrics API did not answer), so there is no'],
+    ['c-dim',  '   measured basis for a new limit.'],
+    ['',       '   evidence:'],
+    ['c-ok',   '     · pod/oom-victim-7cb68bdb99-r8tsf (pod.lastState):'],
+    ['',       '         reason=OOMKilled, exitCode=137, 127s ago'],
+    ['c-ok',   '     · pod/oom-victim-7cb68bdb99-r8tsf (pod.spec):'],
+    ['',       '         container "app" memory limit is 32Mi'],
+    ['c-ok',   '     · pod/oom-victim-7cb68bdb99-r8tsf (pod.status):'],
+    ['',       '         restarted 6 times; current state is CrashLoopBackOff'],
+    ['c-vio',  '   next: get_workload_logs(previous=true) — the current container is in'],
+    ['c-vio',  '         backoff and has produced nothing'],
+    ['',       ''],
+    ['c-warn', 'incomplete — these lookups failed, and any finding relying on them'],
+    ['c-warn', 'has had its confidence reduced:'],
+    ['c-dim',  '  · metrics: the server could not find the requested resource'],
+    ['',       ''],
+    ['c-dim',  '(13 apiserver calls against kind-argus-test)']
+  ];
+  var term = document.getElementById("term");
+
+  function paintAll(){
+    term.textContent = "";  // clears the <noscript> fallback
+    LINES.forEach(function(l){
+      var s = document.createElement("span");
+      if(l[0]) s.className = l[0];
+      s.textContent = l[1] + "\n";
+      term.appendChild(s);
+    });
+  }
+
+  function typeOut(){
+    term.textContent = "";  // clears the <noscript> fallback
+    var i = 0, caret = document.createElement("span");
+    caret.className = "caret";
+    (function next(){
+      if(i >= LINES.length){ term.appendChild(caret); return; }
+      var l = LINES[i++];
+      var s = document.createElement("span");
+      if(l[0]) s.className = l[0];
+      s.textContent = l[1] + "\n";
+      term.insertBefore(s, caret.parentNode === term ? caret : null);
+      if(caret.parentNode !== term) term.appendChild(caret);
+      setTimeout(next, l[1] === "" ? 40 : 78);
+    })();
+  }
+
+  var termPainted = false;
+  function runTerm(){ if(termPainted) return; termPainted = true; reduce ? paintAll() : typeOut(); }
+
+  if(!("IntersectionObserver" in window) || reduce){
+    runTerm();
+  } else {
+    var termIO = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){ if(e.isIntersecting){ termIO.unobserve(e.target); runTerm(); } });
+    }, {threshold:.25});
+    termIO.observe(term);
+    setTimeout(runTerm, 4000);   // same failsafe: never leave the panel empty
+  }
+
+  /* ---- copy buttons ---- */
+  document.querySelectorAll(".copy").forEach(function(b){
+    b.addEventListener("click", function(){
+      var text = b.dataset.copy;
+      var done = function(){ var o = b.textContent; b.textContent = "copied"; setTimeout(function(){ b.textContent = o; }, 1400); };
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(done, done);
+      } else {
+        var ta = document.createElement("textarea");
+        ta.value = text; document.body.appendChild(ta); ta.select();
+        try{ document.execCommand("copy"); }catch(e){}
+        document.body.removeChild(ta); done();
+      }
+    });
+  });
+})();
+</script>
+</body>
+</html>
