@@ -125,7 +125,15 @@ section{padding:64px 0;position:relative;z-index:1}
   color:var(--cyan);margin-bottom:10px
 }
 h2{font-size:clamp(1.7rem,3.5vw,2.4rem);letter-spacing:-.025em;margin:0 0 14px;font-weight:750}
-.lede{color:var(--fg-dim);max-width:680px;margin:0 0 32px;font-size:1.03rem}
+.lede{color:var(--fg-dim);max-width:860px;margin:0 0 32px;font-size:1.03rem}
+code{
+  font-family:var(--mono);font-size:.88em;color:var(--cyan);
+  background:color-mix(in srgb,var(--panel-2) 70%,transparent);
+  padding:.1em .35em;border-radius:5px;border:1px solid var(--line);
+  /* A bordered chip broken across two lines reads as damage rather than as one token. Safe to
+     pin because every inline use here is a short identifier or a two-word command. */
+  white-space:nowrap
+}
 
 /* ---------- convergence diagram ---------- */
 .conv{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:8px;overflow:hidden}
@@ -211,7 +219,7 @@ h2{font-size:clamp(1.7rem,3.5vw,2.4rem);letter-spacing:-.025em;margin:0 0 14px;f
 .safe-item{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--green);border-radius:11px;padding:18px}
 .safe-item h4{margin:0 0 6px;font-size:.95rem}
 .safe-item p{margin:0;font-size:.88rem;color:var(--fg-dim)}
-.safe-item code{font-family:var(--mono);font-size:.8rem;color:var(--cyan);background:var(--panel-2);padding:1px 5px;border-radius:4px}
+.safe-item code{font-size:.8rem}
 
 /* ---------- install ---------- */
 .code{
@@ -315,7 +323,7 @@ footer a:hover{color:var(--cyan)}
     <p class="eyebrow">Real output</p>
     <h2>What a diagnosis actually looks like</h2>
     <p class="lede">
-      Generated from real output rather than retyped — this panel is produced from the bytes argus diagnose actually printed, confidence drop included, because that cluster had no metrics API.</p>
+      Generated from real output rather than retyped — this panel is produced from the bytes <code>argus diagnose</code> actually printed, confidence drop included, because that cluster had no metrics API.</p>
   </div>
   <div class="term rv">
     <div class="term-bar">
