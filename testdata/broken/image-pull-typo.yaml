@@ -1,0 +1,25 @@
+# A tag that does not exist. Produces waiting.reason=ImagePullBackOff plus Warning
+# events with reason=Failed.
+#
+# The detector must distinguish this (a typo — the registry answered, the tag is
+# absent) from a missing imagePullSecret, from registry auth failure, and from a
+# rate limit. All four surface as ImagePullBackOff and have completely different
+# fixes, which is exactly why "ImagePullBackOff" alone is not a diagnosis.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pull-typo
+  namespace: argus-broken
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: pull-typo}
+  template:
+    metadata:
+      labels: {app: pull-typo}
+    spec:
+      containers:
+        - name: app
+          image: nginx:1.27-this-tag-does-not-exist
+          resources:
+            requests: {memory: 16Mi, cpu: 10m}

@@ -1,0 +1,39 @@
+# Allocates anonymous memory until the 32Mi limit kills it. Produces the real
+# signal: lastState.terminated.reason=OOMKilled, exitCode 137, current state
+# CrashLoopBackOff.
+#
+# Getting a genuine OOMKill is fiddlier than it looks, and two obvious approaches
+# both FAIL — verified against a live cluster, not assumed:
+#
+#   * `stress --vm` forks a worker. The worker is OOM-killed, the parent survives
+#     and retries, so the container stays Running with zero restarts and never
+#     reports OOMKilled at all.
+#   * `dd` into an `emptyDir: {medium: Memory}` fails with ENOSPC, not OOM. That
+#     tmpfs is sized to the pod's memory limit, so the write always hits the
+#     filesystem cap *before* the OOM killer engages, and the container exits 1
+#     with reason=Error.
+#
+# Container-level OOM requires PID 1 itself to be the largest RSS consumer and to
+# grow monotonically through anonymous memory. A runtime that allocates without
+# forking does exactly that.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oom-victim
+  namespace: argus-broken
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: oom-victim}
+  template:
+    metadata:
+      labels: {app: oom-victim}
+    spec:
+      terminationGracePeriodSeconds: 1
+      containers:
+        - name: app
+          image: python:3.12-alpine
+          command: ["python", "-u", "-c", "a=bytearray()\nwhile True: a += bytes(5*10**6)"]
+          resources:
+            requests: {memory: 16Mi, cpu: 10m}
+            limits: {memory: 32Mi}

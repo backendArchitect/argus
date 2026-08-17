@@ -1,0 +1,35 @@
+# Revision 2: three things changed at once, which is what a real bad deploy looks
+# like — the image, an env var, and the memory limit cut from 64Mi to 32Mi.
+#
+# Only the limit actually breaks it. The detector's job is not to list the diff
+# (kubectl can nearly do that) but to point at the ONE changed field that explains
+# the failure, and to say the previous revision was healthy.
+#
+# Apply bad-rollout-v1.yaml first and let it go Ready. The detector's claim is
+# "the new ReplicaSet is unhealthy and the previous one was healthy", which is only
+# checkable if a healthy predecessor exists in cluster history.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bad-rollout
+  namespace: argus-broken
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels: {app: bad-rollout}
+  template:
+    metadata:
+      labels: {app: bad-rollout}
+    spec:
+      terminationGracePeriodSeconds: 1
+      containers:
+        - name: app
+          image: python:3.12-alpine
+          command: ["python", "-u", "-c", "a=bytearray()\nwhile True: a += bytes(5*10**6)"]
+          env:
+            - name: LOG_LEVEL
+              value: debug
+          resources:
+            requests: {memory: 16Mi, cpu: 10m}
+            limits: {memory: 32Mi}

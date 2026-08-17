@@ -1,0 +1,36 @@
+# The classic silent failure: the Service selector says app=gapped-api, the pods
+# are labelled app=gapped. Nothing is unhealthy — the pods are Running and Ready,
+# the Deployment reports 1/1 — and the Service simply has no endpoints forever.
+#
+# `kubectl get` shows nothing wrong. This is invisible until someone notices the
+# 503s, which is precisely the class of bug a correlation engine should catch for
+# free and a resource-fetch tool never will.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gapped
+  namespace: argus-broken
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: gapped}
+  template:
+    metadata:
+      labels: {app: gapped}
+    spec:
+      containers:
+        - name: app
+          image: registry.k8s.io/pause:3.9
+          resources:
+            requests: {memory: 8Mi, cpu: 10m}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gapped
+  namespace: argus-broken
+spec:
+  selector: {app: gapped-api}   # <-- the typo. Pods are labelled app=gapped.
+  ports:
+    - port: 80
+      targetPort: 8080
