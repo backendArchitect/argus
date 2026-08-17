@@ -28,8 +28,12 @@ var fixtures = map[string][]string{
 	"bad-rollout":        {"rollout.bad-template", "oomkill.limit-too-low"},
 	"healthy":            {},
 	"node-pressure":      {"node.unhealthy-host"},
-	// Regression: a deliberately idle workload must produce silence, not five criticals.
-	"scaled-to-zero": {},
+	// Regressions, each distilled from a real false positive found by running against a live
+	// cluster. All three assert SILENCE, which is the hardest property to keep true as detectors
+	// grow — and the one that decides whether anyone trusts the tool at 3am.
+	"scaled-to-zero":         {}, // idle workload at 0/0 reported five criticals
+	"healthy-after-rollback": {}, // healthy 1/1 reported as a failing rollout
+	"old-oomkill-recovered":  {}, // OOMKill 18 days ago on a recovered pod, reported critical
 }
 
 func load(t *testing.T, name string) *model.Snapshot {

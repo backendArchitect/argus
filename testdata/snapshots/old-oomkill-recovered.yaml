@@ -1,0 +1,61 @@
+# HAND-AUTHORED regression fixture, distilled from a real false positive.
+#
+# A live cluster reported critical / 95% confidence on a pod that was OOM-killed
+# ONCE, 18 days ago, and had been running and ready ever since. The prose read
+# "It is now in running, so it will keep restarting and dying", which was both
+# ungrammatical and factually wrong.
+#
+# An OOMKill on a container that has recovered is history, not an incident.
+# Capacity advice about a tight limit on a working workload belongs in a
+# resource-pressure tool, not in an incident diagnosis where it displaces the
+# thing that is actually broken.
+#
+# Expected findings: none.
+scope: workload/kube-system/metrics-collector
+namespace: kube-system
+workload:
+  kind: Deployment
+  name: metrics-collector
+  namespace: kube-system
+  selector: {app: metrics-collector}
+  desired: 1
+  ready: 1
+  updated: 1
+  available: 1
+  generation: 4
+  observed_generation: 4
+  created_seconds_ago: 31000000
+replicasets:
+  - name: metrics-collector-59f857f449
+    revision: "4"
+    desired: 1
+    ready: 1
+    available: 1
+    current: true
+    created_seconds_ago: 2600000
+    template:
+      - name: metrics-collector
+        image: registry.k8s.io/metrics-server/metrics-server:v0.7.2
+        limit_mem: 55Mi
+        request_cpu: 43m
+pods:
+  - name: metrics-collector-59f857f449-gftwt
+    node: node-pool-a-abc123
+    phase: Running
+    ready: true
+    owner_kind: ReplicaSet
+    owner_name: metrics-collector-59f857f449
+    created_seconds_ago: 1600000
+    labels: {app: metrics-collector, pod-template-hash: 59f857f449}
+    containers:
+      - name: metrics-collector
+        image: registry.k8s.io/metrics-server/metrics-server:v0.7.2
+        limit_mem: 55Mi
+        request_cpu: 43m
+        ready: true
+        started: true
+        restart_count: 1
+        state: {status: running, seconds_ago: 1587000}
+        # 18 days ago. Long recovered.
+        last_state: {status: terminated, reason: OOMKilled, exit_code: 137, seconds_ago: 1587650}
+        usage_mem: 41620Ki

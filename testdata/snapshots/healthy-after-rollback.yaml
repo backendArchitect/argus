@@ -1,0 +1,83 @@
+# HAND-AUTHORED regression fixture, distilled from a real false positive.
+#
+# A healthy 1/1 Deployment was reported as a FAILING ROLLOUT on a live cluster:
+#   "Revision 15 is failing; revision 17 was healthy"
+# Revision 15 is OLDER than 17. Rolling back reuses the old ReplicaSet rather than
+# creating one — its revision annotation is bumped to the top, but its creation
+# timestamp stays where it always was. Picking "current" by timestamp therefore
+# named a superseded ReplicaSet and compared the wrong pair.
+#
+# The fixture deliberately encodes the WRONG labelling — the superseded RS still
+# marked current at 0/0, while the workload reports 1/1 and the live pod belongs to
+# the other RS. That is self-contradictory, and it is what the workload-health
+# guard catches. There are two independent defences now: gather picks the current
+# RS by revision annotation, and the detector refuses to call a fully-ready
+# workload a failing rollout no matter which RS got labelled. This fixture tests
+# the second one, so it must keep the first one's bug in place.
+#
+# Expected findings: none.
+scope: workload/platform/edge-router
+namespace: platform
+workload:
+  kind: Deployment
+  name: edge-router
+  namespace: platform
+  selector: {app: edge-router}
+  desired: 1
+  ready: 1
+  updated: 1
+  available: 1
+  generation: 17
+  observed_generation: 17
+  created_seconds_ago: 31000000
+  conditions:
+    - type: Available
+      status: "True"
+      reason: MinimumReplicasAvailable
+      last_change_seconds_ago: 900000
+replicasets:
+  # Superseded, but wrongly labelled current by the old newest-by-timestamp rule:
+  # oldest creation, scaled to zero, and NOT where the live pods are.
+  - name: edge-router-5454f54757
+    revision: "15"
+    desired: 0
+    ready: 0
+    available: 0
+    current: true
+    created_seconds_ago: 20000000
+    template:
+      - name: app
+        image: registry.example.com/example-project/edge-router:v1.4.0
+        limit_mem: 128Mi
+        request_cpu: 50m
+  # The RS actually serving traffic — newer, healthy, owns the running pod.
+  - name: edge-router-b659d98d4
+    revision: "17"
+    desired: 1
+    ready: 1
+    available: 1
+    current: false
+    created_seconds_ago: 900000
+    template:
+      - name: app
+        image: registry.example.com/example-project/edge-router:v1.5.0
+        limit_mem: 128Mi
+        request_cpu: 50m
+pods:
+  - name: edge-router-b659d98d4-k9m2p
+    node: node-pool-a-abc123
+    phase: Running
+    ready: true
+    owner_kind: ReplicaSet
+    owner_name: edge-router-b659d98d4
+    created_seconds_ago: 900000
+    labels: {app: edge-router, pod-template-hash: b659d98d4}
+    containers:
+      - name: app
+        image: registry.example.com/example-project/edge-router:v1.4.0
+        limit_mem: 128Mi
+        request_cpu: 50m
+        ready: true
+        started: true
+        restart_count: 0
+        state: {status: running, seconds_ago: 900000}
