@@ -54,10 +54,15 @@ func Render(s *model.Snapshot, findings []model.Finding) string {
 		fmt.Fprintf(&b, "   %s\n", wrap(f.Detail, 3))
 		b.WriteString("   evidence:\n")
 		for _, e := range f.Evidence {
-			fmt.Fprintf(&b, "     · %s (%s): %s\n", e.Ref, e.Source, e.Excerpt)
+			// The ref and source go on their own line and the excerpt is wrapped beneath. Kept on
+			// one line these run past 140 characters, which wraps unreadably in a real terminal and
+			// forces horizontal scrolling everywhere else it is shown.
+			fmt.Fprintf(&b, "     · %s (%s):\n", e.Ref, e.Source)
+			fmt.Fprintf(&b, "         %s\n", wrap(e.Excerpt, 9))
 		}
 		if f.NextTool != nil {
-			fmt.Fprintf(&b, "   next: %s(%s) — %s\n", f.NextTool.Tool, argsString(f.NextTool.Args), f.NextTool.Reason)
+			fmt.Fprintf(&b, "   next: %s\n", wrap(fmt.Sprintf("%s(%s) — %s",
+				f.NextTool.Tool, argsString(f.NextTool.Args), f.NextTool.Reason), 9))
 		}
 	}
 
