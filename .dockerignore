@@ -1,0 +1,28 @@
+# Keep the build context small and free of anything that cannot affect the binary.
+# The Dockerfile runs `go build` only, so everything below is dead weight — and
+# the compiled binary in particular is ~42MB of context that would be rebuilt
+# inside the image anyway.
+/argus
+/argus.exe
+/argus-stamped
+*.test
+*.out
+coverage.*
+
+.git
+.github
+.gitignore
+.dockerignore
+
+# Docs, the landing page, and the fixture corpus: not compiled into the binary.
+docs
+hack
+testdata
+*.md
+LICENSE
+
+go.work
+go.work.sum
+.DS_Store
+.idea/
+.vscode/
