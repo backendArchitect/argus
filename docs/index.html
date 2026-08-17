@@ -376,7 +376,7 @@ findings   1 (1 critical)
 <section id="detectors" class="wrap">
   <div class="rv">
     <p class="eyebrow">The correlation engine</p>
-    <h2>Seven detectors that name a cause</h2>
+    <h2>Seven detectors, nineteen named causes</h2>
     <p class="lede">
       Each is a pure function over a snapshot, so each is replayable against a committed fixture.
       Every fixture asserts its detector fires <em>and that no others do</em> — the negative half is
@@ -456,7 +456,7 @@ findings   1 (1 critical)
   </div>
   <ul class="roadmap rv">
     <li><span class="pill pill-now">shipping</span><span><strong>diagnose_workload</strong> · seven detectors · fuzzy resolution · projection &amp; event dedup · <code>capture</code> fixtures · read-only build gate · verified self-update</span></li>
-    <li><span class="pill pill-next">v0.1</span><span><strong>cluster_triage</strong> — what is broken right now, grouped by owner, not per pod</span></li>
+    <li><span class="pill pill-next">v0.1</span><span><strong>cluster_triage</strong> — the last v0.1 tool: what is broken right now, grouped by owner, not per pod</span></li>
     <li><span class="pill pill-now">shipping</span><span><strong>get_workload_logs</strong> — picks the failing container over sidecars, reads the <code>previous</code> instance on a crashloop, collapses repeated lines, redacts credentials, budgets by tokens. Took a real crashloop from 206 lines to 7</span></li>
     <li><span class="pill pill-later">v0.2</span><span><strong>explain_pending</strong> · <strong>trace_service_path</strong> · informer cache</span></li>
     <li><span class="pill pill-later">v0.3</span><span>GKE Cloud Logging fallback for evicted pods · <strong>compare_environments</strong> · <strong>check_reachability</strong></span></li>

@@ -190,7 +190,7 @@ claude mcp add argus -- argus serve
   *previous* instance on a crashloop, collapses repeated lines, redacts credentials, and budgets
   by tokens. Took a real crashloop from 206 lines to 7
 - **`argus update`** — verified, atomic self-update
-- **Seven detectors** — crash loop (which distinguishes a container the runtime *cannot start* from
+- **Seven detectors, 19 finding IDs** — crash loop (which distinguishes a container the runtime *cannot start* from
   one that starts and exits, and reads the exit code: wrong entrypoint, segfault, abort, exits-zero,
   SIGTERM) · OOM limit too low · bad rollout · image pull (four distinct causes) ·
   readiness misconfigured · endpoint gap (selector typo vs readiness failure) · node-caused,
@@ -205,17 +205,23 @@ claude mcp add argus -- argus serve
 - `argus capture` — snapshot to YAML, doubling as the fixture generator
 - Read-only enforcement, verified by an AST test
 
-**v0.1 — next**
+**v0.1 — next.** One tool left: `cluster_triage` — what is broken right now, grouped by owner
+rather than per pod, so forty crashlooping pods of one Deployment is one finding with a count.
 
-- `cluster_triage` — what is broken right now, grouped by owner rather than per pod
-- `explain_pending` — per-node fit arithmetic for unschedulable pods
-
-**v0.2** — `explain_pending`, `trace_service_path`, informer cache, kind-based CI.
+**v0.2** — `explain_pending` (per-node fit arithmetic for unschedulable pods),
+`trace_service_path`, informer cache, kind-based CI.
 **v0.3** — GKE integrations (Cloud Logging fallback for dead pods, Autopilot, Managed Prometheus),
 `compare_environments`, `check_reachability`, in-cluster deployment with Workload Identity.
 
-**Later, maybe never** — mutations. That is where the liability is; read-only diagnosis is where
-nearly all the value is.
+**Folded in rather than built.** `diff_rollout` was planned as its own tool; the semantic
+template diff it would have provided lives inside the `rollout.bad-template` detector instead, so
+you get it as part of a diagnosis rather than as a separate call. Noted here because it vanished
+from the plan without explanation otherwise.
+
+**Later, maybe never** — mutations against a cluster. That is where the liability is; read-only
+diagnosis is where nearly all the value is. Note the one exception already shipped: `argus update`
+replaces argus's *own binary*, verified against a published checksum. It gives argus no ability to
+write to a cluster.
 
 ---
 

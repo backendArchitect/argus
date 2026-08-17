@@ -322,7 +322,9 @@ digests, git SHAs and snake-cased identifiers.
 
 ## Detectors
 
-Each detector is a pure function over a `model.Snapshot`. Findings are ranked
+Seven detectors produce 19 distinct finding IDs: several detectors split one signal
+into separate causes, because a shared symptom with different remedies is not one
+diagnosis. Each is a pure function over a `model.Snapshot`. Findings are ranked
 severity-first, then by confidence — a 0.99-confidence warning never outranks a
 0.5-confidence critical.
 
@@ -484,9 +486,15 @@ Notable guard tests, if one fails and you're wondering why it exists:
 
 Not built yet. Listed so the design is legible, not to imply availability.
 
-**v0.1** — `cluster_triage`: "what is broken right now", grouped by owner rather
-than per pod, so forty crashlooping pods of one Deployment is one finding with a
-count instead of forty findings.
+**v0.1** — one tool left: `cluster_triage`, "what is broken right now", grouped by
+owner rather than per pod, so forty crashlooping pods of one Deployment is one
+finding with a count instead of forty findings.
+
+**Deliberately not built:** `diff_rollout` was planned as a standalone tool. Its
+semantic template diff lives inside the `rollout.bad-template` detector instead —
+you get it as part of a diagnosis rather than having to ask for it, which is the
+whole premise. It is recorded here because otherwise it simply disappeared from the
+plan.
 
 **v0.2** — `explain_pending` (per-node fit arithmetic: which nodes were excluded
 by taints, by affinity, by insufficient CPU/memory with the actual numbers),
