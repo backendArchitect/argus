@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          cache: true
+
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "not gofmt'd:"; echo "$unformatted"; exit 1
+          fi
+
+      - name: vet
+        run: go vet ./...
+
+      # The suite needs no cluster and must stay that way — detectors are pure
+      # functions over YAML fixtures. If this job ever needs a kubeconfig,
+      # something has crossed the boundary it shouldn't have.
+      - name: test
+        run: go test -race ./...
+
+      - name: build
+        run: go build ./...
+
+      # The read-only guarantee is a build gate, not a convention. Run it by name
+      # as well so a failure is unmistakable in the log rather than buried.
+      - name: read-only guarantee
+        run: go test ./internal/kube -run TestNoMutatingVerbs -v
