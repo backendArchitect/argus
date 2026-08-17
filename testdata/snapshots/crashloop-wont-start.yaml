@@ -1,0 +1,150 @@
+degraded:
+- 'metrics: the server could not find the requested resource (get pods.metrics.k8s.io)'
+events:
+- count: 10
+  first_seen_seconds_ago: 276
+  last_seen_seconds_ago: 173
+  message: Back-off restarting failed container
+  object_count: 1
+  object_kind: Pod
+  object_name: bad-entrypoint-846856c646-522k7
+  reason: BackOff
+  type: Warning
+- count: 5
+  first_seen_seconds_ago: 278
+  last_seen_seconds_ago: 185
+  message: 'Error: failed to create containerd task: failed to create shim task: OCI
+    runtime create failed: runc create failed: unable to start container process:
+    exec: "/usr/local/bin/serverr": stat /usr/local/bin/serverr: no such file or directory:
+    unknown'
+  object_count: 1
+  object_kind: Pod
+  object_name: bad-entrypoint-846856c646-522k7
+  reason: Failed
+  type: Warning
+- count: 5
+  first_seen_seconds_ago: 278
+  last_seen_seconds_ago: 185
+  message: Created container app
+  object_count: 1
+  object_kind: Pod
+  object_name: bad-entrypoint-846856c646-522k7
+  reason: Created
+  type: Normal
+- count: 5
+  first_seen_seconds_ago: 278
+  last_seen_seconds_ago: 185
+  message: Container image "busybox:1.36" already present on machine
+  object_count: 1
+  object_kind: Pod
+  object_name: bad-entrypoint-846856c646-522k7
+  reason: Pulled
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 278
+  last_seen_seconds_ago: 278
+  message: Scaled up replica set bad-entrypoint-<hash> to 1
+  object_count: 1
+  object_kind: Deployment
+  object_name: bad-entrypoint
+  reason: ScalingReplicaSet
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 278
+  last_seen_seconds_ago: 278
+  message: Successfully assigned argus-broken/bad-entrypoint-<pod> to argus-test-control-plane
+  object_count: 1
+  object_kind: Pod
+  object_name: bad-entrypoint-846856c646-522k7
+  reason: Scheduled
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 278
+  last_seen_seconds_ago: 278
+  message: 'Created pod: bad-entrypoint-<pod>'
+  object_count: 1
+  object_kind: ReplicaSet
+  object_name: bad-entrypoint-846856c646
+  reason: SuccessfulCreate
+  type: Normal
+namespace: argus-broken
+nodes:
+- alloc_cpu: "16"
+  alloc_mem: 28358552Ki
+  name: argus-test-control-plane
+  ready: true
+pods:
+- containers:
+  - image: busybox:1.36
+    last_state:
+      exit_code: 128
+      message: 'failed to create containerd task: failed to create shim task: OCI
+        runtime create failed: runc create failed: unable to start container process:
+        exec: "/usr/local/bin/serverr": stat /usr/local/bin/serverr: no such file
+        or directory: unknown'
+      reason: StartError
+      seconds_ago: 92
+      status: terminated
+    name: app
+    ready: false
+    request_cpu: 10m
+    request_mem: 16Mi
+    restart_count: 5
+    started: false
+    state:
+      message: back-off 2m40s restarting failed container=app pod=bad-entrypoint-846856c646-522k7_argus-broken(35e15cfb-b67d-4694-b19c-c681da031596)
+      reason: CrashLoopBackOff
+      status: waiting
+  created_seconds_ago: 278
+  labels:
+    app: bad-entrypoint
+    pod-template-hash: 846856c646
+  name: bad-entrypoint-846856c646-522k7
+  node: argus-test-control-plane
+  owner_kind: ReplicaSet
+  owner_name: bad-entrypoint-846856c646
+  phase: Running
+  ready: false
+replicasets:
+- available: 0
+  created_seconds_ago: 278
+  current: true
+  desired: 1
+  name: bad-entrypoint-846856c646
+  ready: 0
+  revision: "1"
+  template:
+  - args:
+    - --port
+    - "8080"
+    command:
+    - /usr/local/bin/serverr
+    image: busybox:1.36
+    name: app
+    request_cpu: 10m
+    request_mem: 16Mi
+scope: workload/argus-broken/bad-entrypoint
+workload:
+  available: 0
+  conditions:
+  - last_change_seconds_ago: 278
+    message: Deployment does not have minimum availability.
+    reason: MinimumReplicasUnavailable
+    status: "False"
+    type: Available
+  - last_change_seconds_ago: 278
+    message: ReplicaSet "bad-entrypoint-846856c646" is progressing.
+    reason: ReplicaSetUpdated
+    status: "True"
+    type: Progressing
+  created_seconds_ago: 278
+  desired: 1
+  generation: 1
+  kind: Deployment
+  name: bad-entrypoint
+  namespace: argus-broken
+  observed_generation: 1
+  ready: 0
+  selector:
+    app: bad-entrypoint
+  updated: 1

@@ -320,6 +320,12 @@ severity-first, then by confidence — a 0.99-confidence warning never outranks 
 
 | ID | Fires when | What it adds beyond the symptom |
 |---|---|---|
+| `crashloop.container-wont-start` | Runtime reason `StartError` / `ContainerCannotRun` | Names the binary from the OCI error. The intuitive mapping is wrong: a typo'd entrypoint gives **`StartError` / exit 128**, not exit 127 — the container is never created, so the logs are empty and the emptiness is the confirmation. |
+| `crashloop.command-not-found` / `-not-executable` | Exit 127 / 126 | Only when a shell actually ran. A manifest problem, not an application bug. |
+| `crashloop.exits-successfully` | Exit 0 with restarts | Nothing is broken; the workload is the wrong shape. Work that finishes belongs in a Job. |
+| `crashloop.segfault` / `.aborted` | Exit 139 / 134 | SIGSEGV / SIGABRT — a bug in the binary, so a rollback is the fastest mitigation. |
+| `crashloop.terminated-on-signal` | Exit 143 | SIGTERM. Often a liveness probe killing a process that is alive but slow; cites the probe. |
+| `crashloop.exiting-nonzero` | Any other non-zero exit, looping | Honest fallback at lower confidence: it is crashing, and only the logs say why. |
 | `oomkill.limit-too-low` | `lastState.reason == OOMKilled` | The limit that killed it, and a sized suggestion when usage data exists. Keys on the reason, never on exit code 137 alone — 137 is just SIGKILL, which also covers liveness kills and evictions. |
 | `oomkill.no-limit` | OOMKilled with no limit set | Different incident: the kill came from node pressure, not the container's own ceiling, so "raise the limit" would be wrong advice. |
 | `rollout.bad-template` | New RS unhealthy, previous RS healthy | A semantic diff of the two pod templates. Requires a healthy predecessor — without one this is just "the workload is broken", which you knew. |
@@ -331,6 +337,21 @@ severity-first, then by confidence — a 0.99-confidence warning never outranks 
 | `endpoints.no-ready-backends` | Matches pods, none ready | A readiness problem, not a Service problem. |
 | `probe.readiness-misconfigured` | Running, alive, never ready | Compares the probe's real deadline (`initialDelay + period × failureThreshold`) against observed uptime. Skips crashing containers — that is a different story with a different fix. |
 | `node.unhealthy-host` | Node condition abnormal | **Widens scope** and suppresses the workload findings it explains. Requires an actual node condition: on a single-node cluster every pod shares a node, so co-location alone carries no information. |
+
+### A crash loop must be looping now
+
+Every detector that reads a *past* container death shares one gate: the failure has
+to still be happening. Two real false positives came from getting this wrong —
+an OOMKill from 18 days ago on a healthy pod reported as `critical`, and a node's
+containerd churn restarting every pod with exit 255 which briefly made a healthy,
+serving workload look like a crash loop.
+
+So `crashloop.*` requires the container to be **in backoff or terminated right
+now**. A container that is running has already come back, whatever it did earlier;
+and one that is running but not ready is a readiness problem, which
+`probe.readiness-misconfigured` owns. Historical restart counts deliberately gate
+nothing — they say nothing about the current state, and using them made detectors
+go silent during infrastructure churn.
 
 ### Confidence is honest
 

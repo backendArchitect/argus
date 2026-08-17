@@ -1,9 +1,9 @@
 degraded:
 - 'metrics: the server could not find the requested resource (get pods.metrics.k8s.io)'
 events:
-- count: 306
-  first_seen_seconds_ago: 305
-  last_seen_seconds_ago: 5
+- count: 8839
+  first_seen_seconds_ago: 9192
+  last_seen_seconds_ago: 127
   message: 'Readiness probe failed: dial tcp <ip>: connect: connection refused'
   object_count: 1
   object_kind: Pod
@@ -11,8 +11,8 @@ events:
   reason: Unhealthy
   type: Warning
 - count: 1
-  first_seen_seconds_ago: 306
-  last_seen_seconds_ago: 306
+  first_seen_seconds_ago: 441
+  last_seen_seconds_ago: 441
   message: Created container app
   object_count: 1
   object_kind: Pod
@@ -20,8 +20,8 @@ events:
   reason: Created
   type: Normal
 - count: 1
-  first_seen_seconds_ago: 306
-  last_seen_seconds_ago: 306
+  first_seen_seconds_ago: 441
+  last_seen_seconds_ago: 441
   message: Container image "busybox:1.36" already present on machine
   object_count: 1
   object_kind: Pod
@@ -29,50 +29,37 @@ events:
   reason: Pulled
   type: Normal
 - count: 1
-  first_seen_seconds_ago: 306
-  last_seen_seconds_ago: 306
+  first_seen_seconds_ago: 441
+  last_seen_seconds_ago: 441
+  message: Pod sandbox changed, it will be killed and re-created.
+  object_count: 1
+  object_kind: Pod
+  object_name: slow-starter-56687b8b48-r8jwv
+  reason: SandboxChanged
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 441
+  last_seen_seconds_ago: 441
   message: Started container app
   object_count: 1
   object_kind: Pod
   object_name: slow-starter-56687b8b48-r8jwv
   reason: Started
   type: Normal
-- count: 1
-  first_seen_seconds_ago: 307
-  last_seen_seconds_ago: 307
-  message: Scaled up replica set slow-starter-<hash> to 1
-  object_count: 1
-  object_kind: Deployment
-  object_name: slow-starter
-  reason: ScalingReplicaSet
-  type: Normal
-- count: 1
-  first_seen_seconds_ago: 307
-  last_seen_seconds_ago: 307
-  message: Successfully assigned argus-broken/slow-starter-<pod> to argus-test-control-plane
-  object_count: 1
-  object_kind: Pod
-  object_name: slow-starter-56687b8b48-r8jwv
-  reason: Scheduled
-  type: Normal
-- count: 1
-  first_seen_seconds_ago: 307
-  last_seen_seconds_ago: 307
-  message: 'Created pod: slow-starter-<pod>'
-  object_count: 1
-  object_kind: ReplicaSet
-  object_name: slow-starter-56687b8b48
-  reason: SuccessfulCreate
-  type: Normal
 namespace: argus-broken
 nodes:
 - alloc_cpu: "16"
-  alloc_mem: 28358548Ki
+  alloc_mem: 28358552Ki
   name: argus-test-control-plane
   ready: true
 pods:
 - containers:
   - image: busybox:1.36
+    last_state:
+      exit_code: 255
+      reason: Unknown
+      seconds_ago: 449
+      status: terminated
     name: app
     readiness:
       failure_threshold: 2
@@ -84,12 +71,12 @@ pods:
     ready: false
     request_cpu: 10m
     request_mem: 16Mi
-    restart_count: 0
+    restart_count: 5
     started: true
     state:
-      seconds_ago: 306
+      seconds_ago: 441
       status: running
-  created_seconds_ago: 307
+  created_seconds_ago: 19587
   labels:
     app: slow-starter
     pod-template-hash: 56687b8b48
@@ -101,14 +88,17 @@ pods:
   ready: false
 replicasets:
 - available: 0
-  created_seconds_ago: 307
+  created_seconds_ago: 19587
   current: true
   desired: 1
   name: slow-starter-56687b8b48
   ready: 0
   revision: "1"
   template:
-  - image: busybox:1.36
+  - command:
+    - sleep
+    - "3600"
+    image: busybox:1.36
     name: app
     readiness:
       failure_threshold: 2
@@ -132,17 +122,17 @@ services:
 workload:
   available: 0
   conditions:
-  - last_change_seconds_ago: 307
+  - last_change_seconds_ago: 19587
     message: Deployment does not have minimum availability.
     reason: MinimumReplicasUnavailable
     status: "False"
     type: Available
-  - last_change_seconds_ago: 307
-    message: ReplicaSet "slow-starter-56687b8b48" is progressing.
-    reason: ReplicaSetUpdated
-    status: "True"
+  - last_change_seconds_ago: 18986
+    message: ReplicaSet "slow-starter-56687b8b48" has timed out progressing.
+    reason: ProgressDeadlineExceeded
+    status: "False"
     type: Progressing
-  created_seconds_ago: 307
+  created_seconds_ago: 19587
   desired: 1
   generation: 1
   kind: Deployment

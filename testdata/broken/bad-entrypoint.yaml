@@ -1,0 +1,29 @@
+# A typo'd entrypoint: exit 127, "command not found".
+#
+# Worth its own fixture because the remedy has nothing to do with the application.
+# The container never starts, so its logs are empty — and an empty log reads as a
+# dead end unless the diagnosis says the emptiness is itself the confirmation.
+#
+# The same failure hits distroless and scratch images, where a shell-form command
+# fails because there is no /bin/sh to run it.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bad-entrypoint
+  namespace: argus-broken
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: bad-entrypoint}
+  template:
+    metadata:
+      labels: {app: bad-entrypoint}
+    spec:
+      terminationGracePeriodSeconds: 1
+      containers:
+        - name: app
+          image: busybox:1.36
+          command: ["/usr/local/bin/serverr"]   # typo: the binary does not exist
+          args: ["--port", "8080"]
+          resources:
+            requests: {memory: 16Mi, cpu: 10m}

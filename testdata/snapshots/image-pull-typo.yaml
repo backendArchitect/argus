@@ -2,8 +2,8 @@ degraded:
 - 'metrics: the server could not find the requested resource (get pods.metrics.k8s.io)'
 events:
 - count: 6
-  first_seen_seconds_ago: 303
-  last_seen_seconds_ago: 186
+  first_seen_seconds_ago: 440
+  last_seen_seconds_ago: 337
   message: 'Error: ImagePullBackOff'
   object_count: 1
   object_kind: Pod
@@ -11,8 +11,8 @@ events:
   reason: Failed
   type: Warning
 - count: 4
-  first_seen_seconds_ago: 303
-  last_seen_seconds_ago: 215
+  first_seen_seconds_ago: 440
+  last_seen_seconds_ago: 349
   message: 'Failed to pull image "nginx:1.27-this-tag-does-not-exist": rpc error:
     code = NotFound desc = failed to pull and unpack image "docker.io/library/nginx:1.27-this-tag-does-not-exist":
     failed to resolve reference "docker.io/library/nginx:1.27-this-tag-does-not-exist":
@@ -23,17 +23,17 @@ events:
   reason: Failed
   type: Warning
 - count: 4
-  first_seen_seconds_ago: 303
-  last_seen_seconds_ago: 215
+  first_seen_seconds_ago: 440
+  last_seen_seconds_ago: 349
   message: 'Error: ErrImagePull'
   object_count: 1
   object_kind: Pod
   object_name: pull-typo-7fd6c69fb-49lm5
   reason: Failed
   type: Warning
-- count: 7
-  first_seen_seconds_ago: 303
-  last_seen_seconds_ago: 174
+- count: 637
+  first_seen_seconds_ago: 9191
+  last_seen_seconds_ago: 119
   message: Back-off pulling image "nginx:1.27-this-tag-does-not-exist"
   object_count: 1
   object_kind: Pod
@@ -41,8 +41,8 @@ events:
   reason: BackOff
   type: Normal
 - count: 4
-  first_seen_seconds_ago: 306
-  last_seen_seconds_ago: 217
+  first_seen_seconds_ago: 441
+  last_seen_seconds_ago: 351
   message: Pulling image "nginx:1.27-this-tag-does-not-exist"
   object_count: 1
   object_kind: Pod
@@ -50,36 +50,18 @@ events:
   reason: Pulling
   type: Normal
 - count: 1
-  first_seen_seconds_ago: 307
-  last_seen_seconds_ago: 307
-  message: Scaled up replica set pull-typo-<hash> to 1
-  object_count: 1
-  object_kind: Deployment
-  object_name: pull-typo
-  reason: ScalingReplicaSet
-  type: Normal
-- count: 1
-  first_seen_seconds_ago: 307
-  last_seen_seconds_ago: 307
-  message: Successfully assigned argus-broken/pull-typo-<pod> to argus-test-control-plane
+  first_seen_seconds_ago: 441
+  last_seen_seconds_ago: 441
+  message: Pod sandbox changed, it will be killed and re-created.
   object_count: 1
   object_kind: Pod
   object_name: pull-typo-7fd6c69fb-49lm5
-  reason: Scheduled
-  type: Normal
-- count: 1
-  first_seen_seconds_ago: 307
-  last_seen_seconds_ago: 307
-  message: 'Created pod: pull-typo-<pod>'
-  object_count: 1
-  object_kind: ReplicaSet
-  object_name: pull-typo-7fd6c69fb
-  reason: SuccessfulCreate
+  reason: SandboxChanged
   type: Normal
 namespace: argus-broken
 nodes:
 - alloc_cpu: "16"
-  alloc_mem: 28358548Ki
+  alloc_mem: 28358552Ki
   name: argus-test-control-plane
   ready: true
 pods:
@@ -95,7 +77,7 @@ pods:
       message: Back-off pulling image "nginx:1.27-this-tag-does-not-exist"
       reason: ImagePullBackOff
       status: waiting
-  created_seconds_ago: 307
+  created_seconds_ago: 19587
   labels:
     app: pull-typo
     pod-template-hash: 7fd6c69fb
@@ -107,7 +89,7 @@ pods:
   ready: false
 replicasets:
 - available: 0
-  created_seconds_ago: 307
+  created_seconds_ago: 19587
   current: true
   desired: 1
   name: pull-typo-7fd6c69fb
@@ -122,17 +104,17 @@ scope: workload/argus-broken/pull-typo
 workload:
   available: 0
   conditions:
-  - last_change_seconds_ago: 307
+  - last_change_seconds_ago: 19587
     message: Deployment does not have minimum availability.
     reason: MinimumReplicasUnavailable
     status: "False"
     type: Available
-  - last_change_seconds_ago: 307
-    message: ReplicaSet "pull-typo-7fd6c69fb" is progressing.
-    reason: ReplicaSetUpdated
-    status: "True"
+  - last_change_seconds_ago: 18986
+    message: ReplicaSet "pull-typo-7fd6c69fb" has timed out progressing.
+    reason: ProgressDeadlineExceeded
+    status: "False"
     type: Progressing
-  created_seconds_ago: 307
+  created_seconds_ago: 19587
   desired: 1
   generation: 1
   kind: Deployment

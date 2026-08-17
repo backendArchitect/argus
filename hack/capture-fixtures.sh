@@ -24,6 +24,8 @@ targets=(
   "slow-starter:readiness-too-fast"
   "gapped:endpoint-gap"
   "bad-rollout:bad-rollout"
+  "noisy-crashloop:crashloop-nonzero"
+  "bad-entrypoint:crashloop-wont-start"
   "healthy:healthy"
 )
 

@@ -177,7 +177,9 @@ claude mcp add argus -- argus serve
 - **`get_workload_logs`** — picks the failing pod and container over sidecars, reads the
   *previous* instance on a crashloop, collapses repeated lines, redacts credentials, and budgets
   by tokens. Took a real crashloop from 206 lines to 7
-- **Six detectors** — OOM limit too low · bad rollout · image pull (four distinct causes) ·
+- **Seven detectors** — crash loop (which distinguishes a container the runtime *cannot start* from
+  one that starts and exits, and reads the exit code: wrong entrypoint, segfault, abort, exits-zero,
+  SIGTERM) · OOM limit too low · bad rollout · image pull (four distinct causes) ·
   readiness misconfigured · endpoint gap (selector typo vs readiness failure) · node-caused,
   which *widens scope* and suppresses the per-workload symptoms it explains
 - **The broken-fixture suite** — each fixture asserts its detector fires **and no others do**,

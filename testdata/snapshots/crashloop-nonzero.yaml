@@ -1,0 +1,156 @@
+degraded:
+- 'metrics: the server could not find the requested resource (get pods.metrics.k8s.io)'
+events:
+- count: 684
+  first_seen_seconds_ago: 9192
+  last_seen_seconds_ago: 7
+  message: Back-off restarting failed container
+  object_count: 2
+  object_kind: Pod
+  object_name: noisy-crashloop-97b6fd6f8-m2rdb
+  reason: BackOff
+  type: Warning
+- count: 9
+  first_seen_seconds_ago: 442
+  last_seen_seconds_ago: 21
+  message: Created container app
+  object_count: 2
+  object_kind: Pod
+  object_name: noisy-crashloop-97b6fd6f8-m2rdb
+  reason: Created
+  type: Normal
+- count: 9
+  first_seen_seconds_ago: 442
+  last_seen_seconds_ago: 21
+  message: Container image "busybox:1.36" already present on machine
+  object_count: 2
+  object_kind: Pod
+  object_name: noisy-crashloop-97b6fd6f8-m2rdb
+  reason: Pulled
+  type: Normal
+- count: 9
+  first_seen_seconds_ago: 441
+  last_seen_seconds_ago: 21
+  message: Started container app
+  object_count: 2
+  object_kind: Pod
+  object_name: noisy-crashloop-97b6fd6f8-m2rdb
+  reason: Started
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 113
+  last_seen_seconds_ago: 113
+  message: Scaled up replica set noisy-crashloop-<hash> to 1
+  object_count: 1
+  object_kind: Deployment
+  object_name: noisy-crashloop
+  reason: ScalingReplicaSet
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 113
+  last_seen_seconds_ago: 113
+  message: Successfully assigned argus-broken/noisy-crashloop-<pod> to argus-test-control-plane
+  object_count: 1
+  object_kind: Pod
+  object_name: noisy-crashloop-97b6fd6f8-q24pg
+  reason: Scheduled
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 113
+  last_seen_seconds_ago: 113
+  message: 'Created pod: noisy-crashloop-<pod>'
+  object_count: 1
+  object_kind: ReplicaSet
+  object_name: noisy-crashloop-97b6fd6f8
+  reason: SuccessfulCreate
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 442
+  last_seen_seconds_ago: 442
+  message: Pod sandbox changed, it will be killed and re-created.
+  object_count: 1
+  object_kind: Pod
+  object_name: noisy-crashloop-97b6fd6f8-m2rdb
+  reason: SandboxChanged
+  type: Normal
+namespace: argus-broken
+nodes:
+- alloc_cpu: "16"
+  alloc_mem: 28358552Ki
+  name: argus-test-control-plane
+  ready: true
+pods:
+- containers:
+  - image: busybox:1.36
+    last_state:
+      exit_code: 1
+      reason: Error
+      seconds_ago: 21
+      status: terminated
+    name: app
+    ready: false
+    request_cpu: 10m
+    request_mem: 16Mi
+    restart_count: 4
+    started: false
+    state:
+      message: back-off 1m20s restarting failed container=app pod=noisy-crashloop-97b6fd6f8-q24pg_argus-broken(e7226e37-c608-4b28-9daf-40067d5945a9)
+      reason: CrashLoopBackOff
+      status: waiting
+  created_seconds_ago: 113
+  labels:
+    app: noisy-crashloop
+    pod-template-hash: 97b6fd6f8
+  name: noisy-crashloop-97b6fd6f8-q24pg
+  node: argus-test-control-plane
+  owner_kind: ReplicaSet
+  owner_name: noisy-crashloop-97b6fd6f8
+  phase: Running
+  ready: false
+replicasets:
+- available: 0
+  created_seconds_ago: 113
+  current: true
+  desired: 1
+  name: noisy-crashloop-97b6fd6f8
+  ready: 0
+  revision: "1"
+  template:
+  - command:
+    - sh
+    - -c
+    - "echo \"starting up: DATABASE_URL=postgres://orders:hunter2CorrectHorse@db.internal:5432/orders\"\necho
+      \"config loaded: STRIPE_API_KEY=EXAMPLE-NOT-A-REAL-KEY-AAAAAAAA\"\ni=0\nwhile
+      [ $i -lt 200 ]; do\n  echo \"dial tcp 10.4.2.$((i % 250)):5432: connect: connection
+      refused\"\n  i=$((i+1))\ndone\necho \"panic: runtime error: invalid memory address
+      or nil pointer dereference\"\necho \"goroutine 1 [running]:\"\necho \"main.connect(0xc000123456)\"\necho
+      \"\t/src/main.go:42 +0x1a5\"\nexit 1\n"
+    image: busybox:1.36
+    name: app
+    request_cpu: 10m
+    request_mem: 16Mi
+scope: workload/argus-broken/noisy-crashloop
+workload:
+  available: 0
+  conditions:
+  - last_change_seconds_ago: 113
+    message: Deployment does not have minimum availability.
+    reason: MinimumReplicasUnavailable
+    status: "False"
+    type: Available
+  - last_change_seconds_ago: 113
+    message: ReplicaSet "noisy-crashloop-97b6fd6f8" is progressing.
+    reason: ReplicaSetUpdated
+    status: "True"
+    type: Progressing
+  created_seconds_ago: 113
+  desired: 1
+  generation: 1
+  kind: Deployment
+  name: noisy-crashloop
+  namespace: argus-broken
+  observed_generation: 1
+  ready: 0
+  selector:
+    app: noisy-crashloop
+  updated: 1

@@ -28,6 +28,9 @@ var fixtures = map[string][]string{
 	"bad-rollout":        {"rollout.bad-template", "oomkill.limit-too-low"},
 	"healthy":            {},
 	"node-pressure":      {"node.unhealthy-host"},
+	// The most common Kubernetes failure of all, and argus was silent on it until now.
+	"crashloop-nonzero":    {"crashloop.exiting-nonzero"},
+	"crashloop-wont-start": {"crashloop.container-wont-start"},
 	// Regressions, each distilled from a real false positive found by running against a live
 	// cluster. All three assert SILENCE, which is the hardest property to keep true as detectors
 	// grow — and the one that decides whether anyone trusts the tool at 3am.

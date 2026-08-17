@@ -1,36 +1,36 @@
 degraded:
 - 'metrics: the server could not find the requested resource (get pods.metrics.k8s.io)'
 events:
-- count: 16
-  first_seen_seconds_ago: 266
-  last_seen_seconds_ago: 0
+- count: 616
+  first_seen_seconds_ago: 9176
+  last_seen_seconds_ago: 121
   message: Back-off restarting failed container
   object_count: 1
   object_kind: Pod
   object_name: oom-victim-7cb68bdb99-r8tsf
   reason: BackOff
   type: Warning
-- count: 5
-  first_seen_seconds_ago: 306
-  last_seen_seconds_ago: 153
+- count: 4
+  first_seen_seconds_ago: 440
+  last_seen_seconds_ago: 310
   message: Created container app
   object_count: 1
   object_kind: Pod
   object_name: oom-victim-7cb68bdb99-r8tsf
   reason: Created
   type: Normal
-- count: 5
-  first_seen_seconds_ago: 306
-  last_seen_seconds_ago: 153
+- count: 35
+  first_seen_seconds_ago: 9192
+  last_seen_seconds_ago: 310
   message: Container image "python:3.12-alpine" already present on machine
   object_count: 1
   object_kind: Pod
   object_name: oom-victim-7cb68bdb99-r8tsf
   reason: Pulled
   type: Normal
-- count: 5
-  first_seen_seconds_ago: 306
-  last_seen_seconds_ago: 153
+- count: 4
+  first_seen_seconds_ago: 440
+  last_seen_seconds_ago: 310
   message: Started container app
   object_count: 1
   object_kind: Pod
@@ -38,36 +38,18 @@ events:
   reason: Started
   type: Normal
 - count: 1
-  first_seen_seconds_ago: 307
-  last_seen_seconds_ago: 307
-  message: Scaled up replica set oom-victim-<hash> to 1
-  object_count: 1
-  object_kind: Deployment
-  object_name: oom-victim
-  reason: ScalingReplicaSet
-  type: Normal
-- count: 1
-  first_seen_seconds_ago: 307
-  last_seen_seconds_ago: 307
-  message: Successfully assigned argus-broken/oom-victim-<pod> to argus-test-control-plane
+  first_seen_seconds_ago: 440
+  last_seen_seconds_ago: 440
+  message: Pod sandbox changed, it will be killed and re-created.
   object_count: 1
   object_kind: Pod
   object_name: oom-victim-7cb68bdb99-r8tsf
-  reason: Scheduled
-  type: Normal
-- count: 1
-  first_seen_seconds_ago: 307
-  last_seen_seconds_ago: 307
-  message: 'Created pod: oom-victim-<pod>'
-  object_count: 1
-  object_kind: ReplicaSet
-  object_name: oom-victim-7cb68bdb99
-  reason: SuccessfulCreate
+  reason: SandboxChanged
   type: Normal
 namespace: argus-broken
 nodes:
 - alloc_cpu: "16"
-  alloc_mem: 28358548Ki
+  alloc_mem: 28358552Ki
   name: argus-test-control-plane
   ready: true
 pods:
@@ -76,20 +58,21 @@ pods:
     last_state:
       exit_code: 137
       reason: OOMKilled
-      seconds_ago: 27
+      seconds_ago: 189
       status: terminated
     limit_mem: 32Mi
     name: app
     ready: false
     request_cpu: 10m
     request_mem: 16Mi
-    restart_count: 5
+    restart_count: 55
     started: false
     state:
-      message: back-off 2m40s restarting failed container=app pod=oom-victim-7cb68bdb99-r8tsf_argus-broken(9f6df471-6884-49e5-937f-cce32115c357)
-      reason: CrashLoopBackOff
-      status: waiting
-  created_seconds_ago: 307
+      exit_code: 137
+      reason: OOMKilled
+      seconds_ago: 8
+      status: terminated
+  created_seconds_ago: 19587
   labels:
     app: oom-victim
     pod-template-hash: 7cb68bdb99
@@ -101,14 +84,21 @@ pods:
   ready: false
 replicasets:
 - available: 0
-  created_seconds_ago: 307
+  created_seconds_ago: 19587
   current: true
   desired: 1
   name: oom-victim-7cb68bdb99
   ready: 0
   revision: "1"
   template:
-  - image: python:3.12-alpine
+  - command:
+    - python
+    - -u
+    - -c
+    - |-
+      a=bytearray()
+      while True: a += bytes(5*10**6)
+    image: python:3.12-alpine
     limit_mem: 32Mi
     name: app
     request_cpu: 10m
@@ -117,17 +107,17 @@ scope: workload/argus-broken/oom-victim
 workload:
   available: 0
   conditions:
-  - last_change_seconds_ago: 307
+  - last_change_seconds_ago: 19587
     message: ReplicaSet "oom-victim-7cb68bdb99" has successfully progressed.
     reason: NewReplicaSetAvailable
     status: "True"
     type: Progressing
-  - last_change_seconds_ago: 27
+  - last_change_seconds_ago: 8
     message: Deployment does not have minimum availability.
     reason: MinimumReplicasUnavailable
     status: "False"
     type: Available
-  created_seconds_ago: 307
+  created_seconds_ago: 19587
   desired: 1
   generation: 1
   kind: Deployment
