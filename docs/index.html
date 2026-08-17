@@ -80,7 +80,7 @@ nav{
 @keyframes pulse{0%,100%{opacity:1;r:3}50%{opacity:.55;r:4.2}}
 
 /* ---------- hero ---------- */
-header{padding:88px 0 56px;text-align:center}
+header{padding:64px 0 48px;text-align:center}
 .badge{
   display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;
   border:1px solid var(--line-2);background:var(--panel);font-family:var(--mono);
@@ -120,6 +120,13 @@ h1{
 
 /* ---------- sections ---------- */
 section{padding:64px 0;position:relative;z-index:1}
+/* Bands break the page into chapters. Purely visual: no content moves, but the eye
+   gets somewhere to rest and a sense of progress through a long page. */
+section.band{
+  background:color-mix(in srgb,var(--panel) 55%,transparent);
+  border-block:1px solid var(--line);
+  padding:72px 0;margin-block:8px
+}
 .eyebrow{
   font-family:var(--mono);font-size:.74rem;letter-spacing:.16em;text-transform:uppercase;
   color:var(--cyan);margin-bottom:10px
@@ -154,7 +161,14 @@ code{
 /* ---------- terminal ---------- */
 .term{
   background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;
-  box-shadow:0 22px 60px rgba(0,0,0,.34)
+  box-shadow:0 22px 60px rgba(0,0,0,.34);
+  /* A console keeps its dark chrome in both themes. In light mode the panel was white
+     on a near-white page, so it stopped reading as a terminal and became just another
+     document block. Redefining the tokens locally re-skins the bar, the body and every
+     syntax colour in one place, because they all resolve through these variables. */
+  --panel:#0e1422; --panel-2:#121a2c; --line:#1c2740;
+  --fg:#e6edf7; --fg-dim:#94a3bd; --fg-mute:#64748b;
+  --cyan:#38e8ff; --violet:#a78bfa; --amber:#fbbf24; --rose:#fb7185; --green:#34d399;
 }
 .term-bar{
   display:flex;align-items:center;gap:8px;padding:11px 15px;
@@ -180,16 +194,24 @@ code{
 .cmp thead th{font-family:var(--mono);font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--fg-mute)}
 .cmp th:first-child{color:var(--fg-dim);font-weight:600}
 .cmp .them{color:var(--fg-mute)}
-.cmp .us{color:var(--fg);font-weight:600}
+.cmp .us{
+  color:var(--fg);font-weight:600;
+  background:color-mix(in srgb,var(--cyan) 7%,transparent);
+  box-shadow:inset 2px 0 0 var(--cyan)
+}
+.cmp thead th:last-child{color:var(--cyan);background:color-mix(in srgb,var(--cyan) 10%,transparent)}
 .cmp tbody tr{transition:background .2s}
 .cmp tbody tr:hover{background:var(--panel)}
 .tbl-wrap{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:4px 14px}
 
 /* ---------- cards ---------- */
-.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(268px,1fr))}
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.card.wide{grid-column:span 2}
+@media(max-width:980px){.card.wide{grid-column:span 1}}
 .card{
   background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;
-  position:relative;overflow:hidden;transition:transform .25s,border-color .25s
+  position:relative;overflow:hidden;transition:transform .25s,border-color .25s;
+  display:flex;flex-direction:column
 }
 .card::before{
   content:"";position:absolute;inset:0;border-radius:14px;padding:1px;
@@ -202,7 +224,9 @@ code{
 .card h3{margin:0 0 8px;font-size:1rem;font-family:var(--mono);color:var(--cyan);font-weight:600}
 .card p{margin:0;color:var(--fg-dim);font-size:.9rem}
 .card .sig{
-  display:block;margin-top:11px;font-family:var(--mono);font-size:.74rem;color:var(--fg-mute);
+  /* auto pushes it to the card's floor, so a row of cards shares one footer line
+     instead of four ragged ones. */
+  display:block;margin-top:auto;padding-top:11px;font-family:var(--mono);font-size:.74rem;color:var(--fg-mute);
   border-left:2px solid var(--line-2);padding-left:9px
 }
 
@@ -212,10 +236,15 @@ code{
 .stat .n{font-family:var(--mono);font-size:2.2rem;font-weight:700;letter-spacing:-.03em;
   background:linear-gradient(120deg,var(--cyan),var(--violet));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 .stat .l{font-size:.84rem;color:var(--fg-dim);margin-top:5px}
-.stat .was{font-family:var(--mono);font-size:.72rem;color:var(--fg-mute);margin-top:7px}
+.stat .was{
+  font-family:var(--mono);font-size:.73rem;color:var(--fg-dim);margin-top:9px;
+  padding-top:9px;border-top:1px solid var(--line)
+}
 
 /* ---------- safety ---------- */
-.safe{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
+.safe{display:grid;gap:14px;grid-template-columns:repeat(3,1fr)}
+.safe-item.wide{grid-column:span 2}
+@media(max-width:900px){.safe{grid-template-columns:1fr}.safe-item.wide{grid-column:span 1}}
 .safe-item{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--green);border-radius:11px;padding:18px}
 .safe-item h4{margin:0 0 6px;font-size:.95rem}
 .safe-item p{margin:0;font-size:.88rem;color:var(--fg-dim)}
@@ -235,7 +264,14 @@ code{
 .copy:hover{color:var(--cyan);border-color:var(--cyan)}
 
 .roadmap{list-style:none;padding:0;margin:0}
-.roadmap li{display:flex;gap:13px;align-items:flex-start;padding:11px 0;border-bottom:1px solid var(--line)}
+.roadmap li{display:flex;gap:13px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--line)}
+.roadmap li.shipped{background:color-mix(in srgb,var(--green) 4%,transparent)}
+/* A divider between what exists and what does not, because that is the only thing
+   anyone scans a roadmap to learn. */
+.roadmap li.divider{
+  border-bottom:none;padding:22px 0 8px;font-family:var(--mono);font-size:.72rem;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--fg-mute)
+}
 .pill{font-family:var(--mono);font-size:.68rem;padding:3px 9px;border-radius:999px;white-space:nowrap;margin-top:2px}
 .pill-now{background:rgba(52,211,153,.14);color:var(--green);border:1px solid rgba(52,211,153,.3)}
 .pill-next{background:rgba(56,232,255,.12);color:var(--cyan);border:1px solid rgba(56,232,255,.28)}
@@ -318,7 +354,7 @@ footer a:hover{color:var(--cyan)}
   </div>
 </section>
 
-<section class="wrap">
+<section class="wrap band">
   <div class="rv">
     <p class="eyebrow">Real output</p>
     <h2>What a diagnosis actually looks like</h2>
@@ -365,7 +401,7 @@ findings   1 (1 critical)
   </div>
 </section>
 
-<section class="wrap">
+<section class="wrap band">
   <div class="rv">
     <p class="eyebrow">Measured, not estimated</p>
     <h2>Context discipline</h2>
@@ -391,17 +427,17 @@ findings   1 (1 critical)
     </p>
   </div>
   <div class="grid rv">
-    <div class="card"><h3>crashloop.*</h3><p>Reads the <em>exit code</em> instead of restating CrashLoopBackOff. A broken entrypoint, a container that exits zero and should be a Job, SIGSEGV, an abort, a liveness-probe SIGTERM — each gets its own remedy.</p><span class="sig">lastState reason + exit code + the runtime's own error</span></div>
+    <div class="card wide"><h3>crashloop.*</h3><p>Reads the <em>exit code</em> instead of restating CrashLoopBackOff. A broken entrypoint, a container that exits zero and should be a Job, SIGSEGV, an abort, a liveness-probe SIGTERM — each gets its own remedy.</p><span class="sig">lastState reason + exit code + the runtime's own error</span></div>
     <div class="card"><h3>oomkill.limit-too-low</h3><p>The kernel killed it for exceeding its own limit — with a suggested new limit when usage data supports one.</p><span class="sig">lastState.reason=OOMKilled + limit + peak usage</span></div>
     <div class="card"><h3>rollout.bad-template</h3><p>The new revision is failing and the previous one was healthy. Reports the fields that changed between them.</p><span class="sig">RS health pair + semantic template diff</span></div>
     <div class="card"><h3>image.pull-*</h3><p>Distinguishes a typo'd tag from a missing pull secret, refused credentials, and a registry rate limit — four causes, one symptom.</p><span class="sig">waiting.reason + the runtime's own error text</span></div>
     <div class="card"><h3>endpoints.*</h3><p>Tells a selector typo (matches nothing) apart from a readiness failure (matches pods, none ready). Invisible to <code>kubectl get</code>.</p><span class="sig">selector match count vs endpoint readiness</span></div>
     <div class="card"><h3>probe.readiness-misconfigured</h3><p>Running, alive, not crashing — and still never ready. Compares the probe's real deadline against observed uptime.</p><span class="sig">initialDelay + period×failureThreshold</span></div>
-    <div class="card"><h3>node.unhealthy-host</h3><p><strong>Widens scope.</strong> If the node is the cause, it says so and suppresses the per-workload symptoms rather than reporting one cause three times.</p><span class="sig">node conditions + affected pod set</span></div>
+    <div class="card wide"><h3>node.unhealthy-host</h3><p><strong>Widens scope.</strong> If the node is the cause, it says so and suppresses the per-workload symptoms rather than reporting one cause three times.</p><span class="sig">node conditions + affected pod set</span></div>
   </div>
 </section>
 
-<section id="safety" class="wrap">
+<section id="safety" class="wrap band">
   <div class="rv">
     <p class="eyebrow">Safety</p>
     <h2>Read-only, and not on the honour system</h2>
@@ -412,7 +448,7 @@ findings   1 (1 critical)
     </p>
   </div>
   <div class="safe rv">
-    <div class="safe-item">
+    <div class="safe-item wide">
       <h4>No mutating call site</h4>
       <p>A test walks the entire source AST and fails the build on any call to <code>Create</code>, <code>Update</code>, <code>Patch</code>, <code>Delete</code>, <code>Apply</code> or <code>Evict</code> — with a companion test proving the walk can actually fail.</p>
     </div>
@@ -461,10 +497,11 @@ findings   1 (1 critical)
     <h2>Honest about what exists</h2>
   </div>
   <ul class="roadmap rv">
-    <li><span class="pill pill-now">shipping</span><span><strong>diagnose_workload</strong> — the flagship: a fuzzy workload name in, ranked causes out, every one citing the evidence it used</span></li>
-    <li><span class="pill pill-now">shipping</span><span><strong>cluster_triage</strong> — what is broken right now, grouped by controller. 130 workloads in 10 apiserver calls, constant in cluster size, because it inverts the data flow instead of looping the diagnosis</span></li>
-    <li><span class="pill pill-now">shipping</span><span><strong>get_workload_logs</strong> — picks the failing container over sidecars, reads the <code>previous</code> instance on a crashloop, collapses repeated lines, redacts credentials, budgets by tokens. Took a real crashloop from 206 lines to 7</span></li>
-    <li><span class="pill pill-now">shipping</span><span>Seven detectors over 19 named causes · the broken-fixture suite · projection &amp; event dedup · fuzzy resolution across Deployment/StatefulSet/DaemonSet/Rollout · <code>capture</code> as the fixture generator · read-only enforced as a build gate · checksum-verified self-update</span></li>
+    <li class="shipped"><span class="pill pill-now">shipping</span><span><strong>diagnose_workload</strong> — the flagship: a fuzzy workload name in, ranked causes out, every one citing the evidence it used</span></li>
+    <li class="shipped"><span class="pill pill-now">shipping</span><span><strong>cluster_triage</strong> — what is broken right now, grouped by controller. 130 workloads in 10 apiserver calls, constant in cluster size, because it inverts the data flow instead of looping the diagnosis</span></li>
+    <li class="shipped"><span class="pill pill-now">shipping</span><span><strong>get_workload_logs</strong> — picks the failing container over sidecars, reads the <code>previous</code> instance on a crashloop, collapses repeated lines, redacts credentials, budgets by tokens. Took a real crashloop from 206 lines to 7</span></li>
+    <li class="shipped"><span class="pill pill-now">shipping</span><span>Seven detectors over 19 named causes · the broken-fixture suite · projection &amp; event dedup · fuzzy resolution across Deployment/StatefulSet/DaemonSet/Rollout · <code>capture</code> as the fixture generator · read-only enforced as a build gate · checksum-verified self-update</span></li>
+    <li class="divider"><span></span><span>not built yet</span></li>
     <li><span class="pill pill-later">v0.2</span><span><strong>explain_pending</strong> — per-node fit arithmetic for unschedulable pods · <strong>trace_service_path</strong> · informer cache · kind-based CI</span></li>
     <li><span class="pill pill-later">v0.3</span><span>GKE Cloud Logging fallback for evicted pods · <strong>compare_environments</strong> · <strong>check_reachability</strong> · in-cluster deployment with Workload Identity</span></li>
     <li><span class="pill pill-later">maybe never</span><span>Mutations <em>against a cluster</em>. That is where the liability is; read-only diagnosis is where nearly all the value is. The one exception already shipped is <code>argus update</code>, which replaces argus's own binary against a published checksum and grants no cluster write access.</span></li>
