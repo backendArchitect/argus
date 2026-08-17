@@ -1,8 +1,18 @@
 name: release
 
-# Auto-release on every push to main: test -> selftest -> patch-bump a tag ->
-# cross-compile -> publish a GitHub Release and a GHCR image.
-# Put "[skip release]" in the commit message to skip.
+# Auto-release on every push to main: test -> selftest -> tag -> cross-compile ->
+# publish a GitHub Release and a GHCR image.
+#
+# The version is the git tag; nothing in the source carries a version string. The bump is a patch
+# unless the commit message says otherwise, because patch is the honest default and a minor or
+# major bump is a compatibility claim that should be made on purpose:
+#
+#   [minor]         v0.1.9 -> v0.2.0
+#   [major]         v0.9.3 -> v1.0.0
+#   [skip release]  no tag, no release
+#
+# Pushing a tag by hand also works — the next automatic bump continues from whatever the highest
+# tag is.
 #
 # The selftest gate is what makes auto-release safe here. argus is a tool people
 # point at production clusters, so "the unit tests passed" is not a sufficient
@@ -76,18 +86,39 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: {fetch-depth: 0}
-      - name: Compute next tag (patch bump)
+      - name: Compute next tag
         id: next
+        # The commit message reaches the shell through env, never through ${{ }} interpolation.
+        # Interpolating it directly would let a commit message containing $(...) or backticks run
+        # arbitrary commands in a job that holds contents:write and packages:write.
+        env:
+          MSG: ${{ github.event.head_commit.message }}
         run: |
-          latest=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+          set -euo pipefail
+          latest=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || true)
           if [ -z "$latest" ]; then
-            next="v0.1.0"
-          else
-            IFS=. read -r a b c <<< "${latest#v}"
-            next="v${a}.${b}.$((c + 1))"
+            echo "tag=v0.1.0" >> "$GITHUB_OUTPUT"
+            echo "First release: v0.1.0"
+            exit 0
           fi
+          IFS=. read -r a b c <<< "${latest#v}"
+
+          # Patch is the default because it is the honest answer for almost every commit. A minor
+          # or major bump is a claim about compatibility, so it has to be stated deliberately.
+          case "$MSG" in
+            *"[major]"*) bump=major ;;
+            *"[minor]"*) bump=minor ;;
+            *)           bump=patch ;;
+          esac
+          case "$bump" in
+            major) next="v$((a + 1)).0.0" ;;
+            minor) next="v${a}.$((b + 1)).0" ;;
+            patch) next="v${a}.${b}.$((c + 1))" ;;
+          esac
+
           echo "tag=$next" >> "$GITHUB_OUTPUT"
-          echo "Next release: $next (previous: ${latest:-none})"
+          echo "Next release: $next ($bump bump from ${latest})"
+
       - name: Create and push tag
         run: |
           git config user.name  "github-actions[bot]"
