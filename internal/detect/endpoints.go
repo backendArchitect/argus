@@ -24,6 +24,13 @@ import (
 // reporting "Service has no endpoints" without distinguishing them just moves
 // the diagnosis one step down the road.
 func detectEndpointGap(s *model.Snapshot) []model.Finding {
+	// A workload scaled to zero has no endpoints by design, not by fault. Reporting its Services
+	// as broken is a false positive on every intentionally-idle workload in the cluster — Argo CD
+	// components parked at 0/0, scaled-down staging apps, cron-driven deployments.
+	if s.Workload != nil && s.Workload.Desired == 0 {
+		return nil
+	}
+
 	var out []model.Finding
 
 	for i := range s.Services {

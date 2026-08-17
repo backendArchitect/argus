@@ -381,23 +381,35 @@ func (c *Client) services(ctx context.Context, ns, workloadName string, sel map[
 
 // relatedSelector decides whether a Service is plausibly meant for this workload.
 //
-// Matching on a shared key/value pair is the obvious rule and it is NOT sufficient on its own:
-// a Service whose selector value has a typo shares no pair with the workload, so that rule filters
-// out precisely the broken Services the endpoint detector exists to find. Verified against a
-// fixture — selector app=gapped-api against pods labelled app=gapped matched nothing and the
-// Service never reached the snapshot.
+// The rule that matters is the semantic one: a Service fronts a workload when its selector is a
+// SUBSET of the workload's pod labels, i.e. it would actually select those pods.
 //
-// So a shared selector KEY plus a matching name also counts. Naming a Service after its workload
-// is near-universal convention, and it is the only signal left once the labels stop lining up.
+// Matching on any single shared key/value looks equivalent and is badly wrong in practice. Real
+// clusters use release-scoped labels: every Argo CD component carries
+// app.kubernetes.io/instance=argocd, so diagnosing argocd-server pulled in five sibling Services
+// and reported all of them as broken. Verified against a live cluster, not reasoned about.
 //
-// ponytail: a Service that is both misnamed and mislabelled will still be missed. Catching that
-// would mean pulling every Service in the namespace into every snapshot, which costs more context
-// than the case is worth.
+// The name fallback exists for the one case the subset rule cannot catch: a Service whose selector
+// VALUE has a typo shares no complete pair with its workload, and that is exactly the failure the
+// endpoint detector exists to find. Requiring the names to match keeps it from re-admitting the
+// siblings.
+//
+// ponytail: a Service that is both misnamed and mislabelled is still missed. Catching it would mean
+// pulling every Service in the namespace into every snapshot, which costs more context than the
+// case is worth.
 func relatedSelector(svcSel, workloadSel map[string]string, svcName, workloadName string) bool {
+	if len(svcSel) == 0 {
+		return false
+	}
+	subset := true
 	for k, v := range svcSel {
-		if wv, ok := workloadSel[k]; ok && wv == v {
-			return true
+		if wv, ok := workloadSel[k]; !ok || wv != v {
+			subset = false
+			break
 		}
+	}
+	if subset {
+		return true
 	}
 	if svcName == workloadName {
 		for k := range svcSel {

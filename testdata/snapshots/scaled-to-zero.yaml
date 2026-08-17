@@ -1,0 +1,48 @@
+# HAND-AUTHORED regression fixture, distilled from a real false positive.
+#
+# Diagnosing a deliberately idle Argo CD component (0/0 replicas) reported FIVE
+# critical findings on a live cluster: every sibling Service in the namespace
+# looked like a broken selector, because they all carry the release-scoped label
+# app.kubernetes.io/instance=argocd and the workload had no pods to match.
+#
+# Two separate faults, both represented here:
+#   1. a workload scaled to zero has no endpoints BY DESIGN, not by fault;
+#   2. a shared release label is not evidence that a Service fronts this workload.
+#
+# Expected findings: none. This fixture earns its place by asserting silence.
+scope: workload/argocd/argocd-server
+namespace: argocd
+workload:
+  kind: Deployment
+  name: argocd-server
+  namespace: argocd
+  selector:
+    app.kubernetes.io/instance: argocd
+    app.kubernetes.io/name: argocd-server
+  desired: 0
+  ready: 0
+  updated: 0
+  available: 0
+  generation: 3
+  observed_generation: 3
+  created_seconds_ago: 26870400
+services:
+  - name: argocd-server
+    selector:
+      app.kubernetes.io/instance: argocd
+      app.kubernetes.io/name: argocd-server
+    ready_count: 0
+    not_ready_count: 0
+    matched_pods: 0
+replicasets:
+  - name: argocd-server-6d7b9c4f8
+    revision: "3"
+    desired: 0
+    ready: 0
+    available: 0
+    current: true
+    created_seconds_ago: 2600000
+    template:
+      - name: argocd-server
+        image: quay.io/argoproj/argocd:v2.9.3
+        request_cpu: 100m

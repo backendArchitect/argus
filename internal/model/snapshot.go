@@ -259,3 +259,38 @@ func ParseMem(q string) int64 {
 	}
 	return v.Value()
 }
+
+// LogBundle is projected container output: redacted, grouped and budgeted.
+//
+// Raw logs are the least structured and most dangerous thing argus emits — unbounded in size, and
+// the one place an application can print a credential. Everything here exists to bound one of
+// those two risks.
+type LogBundle struct {
+	Pod       string `json:"pod"`
+	Container string `json:"container"`
+	// Previous reports whether these are the *previous* container instance's logs. On a
+	// crashlooping pod that is almost always what you want: the current instance is in backoff
+	// and has produced nothing.
+	Previous bool `json:"previous"`
+	// Reason explains why this pod, container and instance were chosen, so the selection is
+	// auditable rather than magic.
+	Reason string `json:"reason"`
+
+	Groups []LogGroup `json:"groups"`
+
+	// DroppedGroups counts distinct lines elided by the token budget. Never silent: a truncated
+	// log that does not say it was truncated reads as a complete one.
+	DroppedGroups int    `json:"dropped_groups,omitempty"`
+	Note          string `json:"note,omitempty"`
+}
+
+// LogGroup is a set of log lines identical after normalization. Ten thousand identical panics
+// collapse to one entry with a count, which is the difference between a readable diagnosis and a
+// context window full of the same stack trace.
+type LogGroup struct {
+	Text  string `json:"text"`
+	Count int    `json:"count"`
+	// FirstSecondsAgo/LastSecondsAgo are zero when the log carried no usable timestamps.
+	FirstSecondsAgo int64 `json:"first_seconds_ago,omitempty"`
+	LastSecondsAgo  int64 `json:"last_seconds_ago,omitempty"`
+}

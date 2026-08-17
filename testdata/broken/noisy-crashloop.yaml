@@ -1,0 +1,45 @@
+# A crashlooping container that actually LOGS — the others die silently, which
+# exercises container selection but proves nothing about what argus does with the
+# output once it has it.
+#
+# This one produces the three things the log path has to handle:
+#   * 200 identical "connection refused" lines, to prove repetition collapses;
+#   * a startup banner echoing a DSN with a password, to prove redaction runs on
+#     the highest-risk content argus emits;
+#   * a panic and stack trace at the very end, to prove the budget keeps the tail
+#     rather than the head — a failure is always at the end of a log.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: noisy-crashloop
+  namespace: argus-broken
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: noisy-crashloop}
+  template:
+    metadata:
+      labels: {app: noisy-crashloop}
+    spec:
+      terminationGracePeriodSeconds: 1
+      containers:
+        - name: app
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "starting up: DATABASE_URL=postgres://orders:hunter2CorrectHorse@db.internal:5432/orders"
+              echo "config loaded: STRIPE_API_KEY=EXAMPLE-NOT-A-REAL-KEY-AAAAAAAA"
+              i=0
+              while [ $i -lt 200 ]; do
+                echo "dial tcp 10.4.2.$((i % 250)):5432: connect: connection refused"
+                i=$((i+1))
+              done
+              echo "panic: runtime error: invalid memory address or nil pointer dereference"
+              echo "goroutine 1 [running]:"
+              echo "main.connect(0xc000123456)"
+              echo "	/src/main.go:42 +0x1a5"
+              exit 1
+          resources:
+            requests: {memory: 16Mi, cpu: 10m}

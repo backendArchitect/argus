@@ -21,7 +21,7 @@ by hand.
 
 > **Status: pre-release.** `diagnose_workload` works end to end — six detectors, ranked findings,
 > mandatory evidence — and is verified against fixtures captured from real clusters.
-> `cluster_triage` and `get_workload_logs` are not built yet. See [Roadmap](#roadmap).
+> `cluster_triage` is not built yet. See [Roadmap](#roadmap).
 
 ---
 
@@ -54,6 +54,9 @@ argus diagnose checkout-api -n prod
 
 # Run as an MCP server over stdio.
 argus serve
+
+# Logs for the failing container — previous instance if it is crashlooping.
+argus logs checkout-api -n prod
 
 # Collect a raw diagnosis snapshot as YAML (this is also the fixture generator).
 argus capture deploy/checkout-api -n prod
@@ -171,6 +174,9 @@ claude mcp add argus -- argus serve
 **Working now**
 
 - **`diagnose_workload`** — the flagship: one call in, a ranked diagnosis out
+- **`get_workload_logs`** — picks the failing pod and container over sidecars, reads the
+  *previous* instance on a crashloop, collapses repeated lines, redacts credentials, and budgets
+  by tokens. Took a real crashloop from 206 lines to 7
 - **Six detectors** — OOM limit too low · bad rollout · image pull (four distinct causes) ·
   readiness misconfigured · endpoint gap (selector typo vs readiness failure) · node-caused,
   which *widens scope* and suppresses the per-workload symptoms it explains
@@ -187,8 +193,7 @@ claude mcp add argus -- argus serve
 **v0.1 — next**
 
 - `cluster_triage` — what is broken right now, grouped by owner rather than per pod
-- `get_workload_logs` — auto-selects the failing container, defaults to `previous` on crashloop,
-  groups stack traces, budgets output by tokens
+- `explain_pending` — per-node fit arithmetic for unschedulable pods
 
 **v0.2** — `explain_pending`, `trace_service_path`, informer cache, kind-based CI.
 **v0.3** — GKE integrations (Cloud Logging fallback for dead pods, Autopilot, Managed Prometheus),
