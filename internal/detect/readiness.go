@@ -39,11 +39,11 @@ func detectReadinessMisconfigured(s *model.Snapshot) []model.Finding {
 			if c.Readiness == nil {
 				continue
 			}
-			// Repeated restarts mean something IS killing it — that is a crash story,
-			// not a probe-tuning story, even though the probe is also failing.
-			if c.RestartCount > 2 {
-				continue
-			}
+			// Deliberately NOT gated on restart count. The check above already requires the
+			// container to be running, so it is not crash-looping now, and a historical restart
+			// count says nothing about the probe. A count-based guard also broke under real
+			// conditions: a node's containerd churned and restarted every pod, and this detector
+			// then went silent on a workload whose probe was genuinely misconfigured.
 
 			deadline := c.Readiness.Deadline()
 			alive := c.State.SecondsAgo // seconds since the container started
@@ -64,12 +64,12 @@ func detectReadinessMisconfigured(s *model.Snapshot) []model.Finding {
 					c.Name, alive),
 				Detail: fmt.Sprintf("The readiness probe allows only %ds before it gives up "+
 					"(initialDelaySeconds %d + periodSeconds %d x failureThreshold %d), but the "+
-					"container has been running for %ds without passing. The process is alive and "+
-					"has restarted %d time(s), so this is not a crash — either the application "+
-					"needs longer to start than the probe permits, or the probe is checking the "+
-					"wrong %s target. Until it passes, the pod stays out of every Service.",
+					"container has been running for %ds without passing. The process is alive and not "+
+					"crash-looping, so this is not a crash — either the application needs longer to "+
+					"start than the probe permits, or the probe is checking the wrong %s target. "+
+					"Until it passes, the pod stays out of every Service.",
 					deadline, c.Readiness.InitialDelay, c.Readiness.Period,
-					c.Readiness.FailureThreshold, alive, c.RestartCount, c.Readiness.Kind),
+					c.Readiness.FailureThreshold, alive, c.Readiness.Kind),
 				Evidence: []model.Evidence{
 					evidence("pod.spec", "pod/"+pod.Name,
 						"readiness probe: %s initialDelay=%ds period=%ds failureThreshold=%d timeout=%ds (deadline %ds)",
