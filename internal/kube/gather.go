@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -252,25 +253,13 @@ func (c *Client) replicaSets(ctx context.Context, ref Ref, sel map[string]string
 		return nil, "", err
 	}
 
-	// The current RS is the newest one owned by this Deployment that still has desired replicas;
-	// falling back to newest overall covers a scaled-to-zero rollout.
 	var owned []appsv1.ReplicaSet
 	for _, rs := range l.Items {
 		if o := metav1.GetControllerOf(&rs); o != nil && o.Kind == "Deployment" && o.Name == ref.Name {
 			owned = append(owned, rs)
 		}
 	}
-	var currentHash string
-	var newest *appsv1.ReplicaSet
-	for i := range owned {
-		rs := &owned[i]
-		if newest == nil || rs.CreationTimestamp.After(newest.CreationTimestamp.Time) {
-			newest = rs
-		}
-	}
-	if newest != nil {
-		currentHash = newest.Labels["pod-template-hash"]
-	}
+	currentHash := currentTemplateHash(owned)
 
 	// Keep the current RS plus the most recent others. A long-lived Deployment accumulates dozens
 	// of ReplicaSets, each carrying a full pod template; the rollout diff only ever compares the
@@ -292,6 +281,43 @@ func (c *Client) replicaSets(ctx context.Context, ref Ref, sel map[string]string
 		note = fmt.Sprintf("replicasets: kept the %d newest of %d", len(kept), len(owned))
 	}
 	return out, note, nil
+}
+
+// currentTemplateHash identifies the ReplicaSet the Deployment is currently rolling out to.
+//
+// Newest-by-creation is the obvious rule and it is WRONG after a rollback. Rolling back reuses the
+// old ReplicaSet rather than creating one: its revision annotation is bumped to the top, but its
+// creation timestamp stays where it always was. Picking by timestamp then names a superseded RS as
+// current, and the rollout detector compared the wrong pair — on a live cluster it reported
+// "revision 15 is failing; revision 17 was healthy" about a workload that was perfectly healthy.
+//
+// The revision annotation is what kubectl itself treats as authoritative, so use that, and fall
+// back to creation order only when the annotation is missing or unparseable.
+func currentTemplateHash(owned []appsv1.ReplicaSet) string {
+	var best *appsv1.ReplicaSet
+	bestRev := int64(-1)
+	for i := range owned {
+		rs := &owned[i]
+		rev, err := strconv.ParseInt(rs.Annotations["deployment.kubernetes.io/revision"], 10, 64)
+		if err != nil {
+			continue
+		}
+		if rev > bestRev {
+			bestRev, best = rev, rs
+		}
+	}
+	if best == nil {
+		for i := range owned {
+			rs := &owned[i]
+			if best == nil || rs.CreationTimestamp.After(best.CreationTimestamp.Time) {
+				best = rs
+			}
+		}
+	}
+	if best == nil {
+		return ""
+	}
+	return best.Labels["pod-template-hash"]
 }
 
 // events lists namespace events and keeps only those about this workload's object tree.
