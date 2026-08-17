@@ -9,6 +9,7 @@
 //	argus capture deploy/foo -n ns # write a Snapshot fixture to stdout
 //	argus diagnose foo -n ns       # run the pipeline from the CLI, no MCP
 //	argus logs foo -n ns           # logs for the failing container, with judgment
+//	argus update                   # replace this binary with the latest release
 package main
 
 import (
@@ -27,6 +28,7 @@ import (
 
 	"github.com/backendArchitect/argus/internal/detect"
 	"github.com/backendArchitect/argus/internal/kube"
+	"github.com/backendArchitect/argus/internal/selfupdate"
 	"github.com/backendArchitect/argus/internal/tools"
 )
 
@@ -48,6 +50,7 @@ var commands = []struct {
 	{"serve", "", "run as an MCP server over stdio", serve},
 	{"capture", "<workload> -n <ns>", "write a diagnosis snapshot as YAML (the fixture generator)", capture},
 	{"version", "", "print the version", cmdVersion},
+	{"update", "", "replace this binary with the latest release", cmdUpdate},
 }
 
 func run(args []string, stdout io.Writer) error {
@@ -77,6 +80,22 @@ func run(args []string, stdout io.Writer) error {
 		}
 	}
 	return fmt.Errorf("unknown command %q — run 'argus help' for the list", args[0])
+}
+
+// cmdUpdate replaces the running binary. The checksum verification and the refusal to clobber a
+// local build live in internal/selfupdate; this is only the flag surface.
+func cmdUpdate(ctx context.Context, args []string, stdout io.Writer) error {
+	fs := flag.NewFlagSet("update", flag.ContinueOnError)
+	force := fs.Bool("force", false, "replace even a locally-built binary (this discards your local build)")
+	check := fs.Bool("check", false, "report whether an update exists, change nothing")
+	describe(fs, "replace this binary with the latest release",
+		"argus update            # or: argus update -check")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	return selfupdate.Update(ctx, selfupdate.Options{
+		Current: tools.Version, Force: *force, DryRun: *check,
+	}, stdout)
 }
 
 func cmdVersion(_ context.Context, _ []string, stdout io.Writer) error {

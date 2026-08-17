@@ -14,6 +14,13 @@ import (
 // mutatingVerbs are the client-go method names that change cluster state. Matching on method name
 // alone is deliberately blunt: a false positive costs one look, a false negative costs a production
 // incident caused by the tool that was supposed to diagnose one.
+//
+// SCOPE: this guard is about CLUSTER state, not the local filesystem. internal/selfupdate writes
+// and replaces files on disk on purpose, and passes only because os.CreateTemp does not collide
+// with a client verb name — which is coincidence rather than exemption, so say so plainly here
+// instead of letting a reader assume that package was vetted by this test. What matters is that
+// nothing in the tree can write to a cluster, and being name-based this check cannot tell
+// client.Create(pod) from os.CreateTemp. It is a tripwire against the obvious mistake, not a proof.
 var mutatingVerbs = map[string]bool{
 	"Create":           true,
 	"Update":           true,
