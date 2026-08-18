@@ -116,6 +116,10 @@ h1{
   -webkit-text-fill-color:transparent;animation:sheen 7s linear infinite
 }
 @keyframes sheen{to{background-position:220% center}}
+.tagline{
+  font-family:var(--mono);font-size:clamp(.9rem,1.5vw,1.05rem);
+  letter-spacing:.02em;color:var(--fg-dim);margin:0 0 22px
+}
 .sub{font-size:clamp(1.05rem,2.1vw,1.28rem);color:var(--fg-dim);max-width:660px;margin:0 auto 34px;line-height:1.68;text-wrap:pretty}
 .cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:14px}
 .btn{
@@ -307,6 +311,7 @@ footer a:hover{color:var(--cyan)}
 <header class="wrap">
   <span class="badge"><span class="dot"></span>read-only · evidence-backed · pre-release</span>
   <h1>One question in.<br><span class="grad">One ranked diagnosis out.</span></h1>
+  <p class="tagline">Built for real <span class="grad">3AM</span> incidents.</p>
   <p class="sub">
     argus is a Kubernetes incident-diagnosis MCP server. Ask <em>“why is checkout-api broken?”</em>
     and it correlates twelve resource kinds in a single read-only pass, then answers with ranked
@@ -500,7 +505,7 @@ findings   1 (1 critical)
 
 <footer>
   <div class="wrap foot-in">
-    <span>MIT · built for real 3am incidents</span>
+    <span>MIT · built for real 3AM incidents</span>
     <span style="margin-left:auto;display:flex;gap:18px">
       <a href="https://github.com/backendArchitect/argus">GitHub</a>
       <a href="https://github.com/backendArchitect/argus/blob/main/USAGE.md">Docs</a>

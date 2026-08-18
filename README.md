@@ -10,6 +10,8 @@
 
 ### One question in, one ranked diagnosis out.
 
+> **Built for real 3AM incidents.**
+
 **argus** is a Kubernetes incident-diagnosis MCP server. You ask *"why is checkout-api broken?"* and
 it answers with a ranked list of causes, each one citing the evidence it used.
 
