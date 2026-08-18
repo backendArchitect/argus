@@ -58,6 +58,9 @@ argus serve
 # What is broken right now, across every namespace.
 argus triage
 
+# Why won't it schedule? Per-node arithmetic, not just "Insufficient memory".
+argus pending checkout-api -n prod
+
 # Logs for the failing container — previous instance if it is crashlooping.
 argus logs checkout-api -n prod
 
@@ -197,6 +200,9 @@ claude mcp add argus -- argus serve
 - **`cluster_triage`** — what is broken right now, grouped by controller and with infrastructure
   findings collapsed. Constant cost: 130 workloads in 10 apiserver calls, not the ~1,700 a loop
   over `diagnose_workload` would have taken
+- **`explain_pending`** — why a pod will not schedule, with per-node arithmetic: what it asked
+  for, what each node has free, and how much is already reserved by other pods. Names the
+  constraints it does *not* evaluate rather than implying completeness
 - **`argus update`** — verified, atomic self-update
 - **Seven detectors, 19 finding IDs** — crash loop (which distinguishes a container the runtime *cannot start* from
   one that starts and exits, and reads the exit code: wrong entrypoint, segfault, abort, exits-zero,
@@ -215,8 +221,7 @@ claude mcp add argus -- argus serve
 
 **v0.1 is complete.**
 
-**v0.2** — `explain_pending` (per-node fit arithmetic for unschedulable pods),
-`trace_service_path`, informer cache, kind-based CI.
+**v0.2** — `trace_service_path`, informer cache, kind-based CI.
 **v0.3** — GKE integrations (Cloud Logging fallback for dead pods, Autopilot, Managed Prometheus),
 `compare_environments`, `check_reachability`, in-cluster deployment with Workload Identity.
 

@@ -1,0 +1,47 @@
+# Two ways a pod fails to schedule, because they need different fixes and the tool has
+# to tell them apart.
+#
+# too-big asks for more memory than any node has: the answer is to shrink the request
+# or grow the cluster, and the arithmetic per node is what tells you which.
+#
+# wrong-selector asks for a label no node carries: the cluster has plenty of room and
+# the manifest is simply wrong. Nothing in the resource numbers would reveal that.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: too-big
+  namespace: argus-broken
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: too-big}
+  template:
+    metadata:
+      labels: {app: too-big}
+    spec:
+      containers:
+        - name: app
+          image: registry.k8s.io/pause:3.9
+          resources:
+            requests: {memory: 900Gi, cpu: 200m}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wrong-selector
+  namespace: argus-broken
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: wrong-selector}
+  template:
+    metadata:
+      labels: {app: wrong-selector}
+    spec:
+      nodeSelector:
+        disktype: nvme-that-does-not-exist
+      containers:
+        - name: app
+          image: registry.k8s.io/pause:3.9
+          resources:
+            requests: {memory: 16Mi, cpu: 10m}

@@ -17,6 +17,7 @@ The full reference. For the short version, see [README.md](README.md).
 - [Context budget](#context-budget)
 - [Connect an AI editor (MCP)](#connect-an-ai-editor-mcp)
 - [Triage](#triage)
+- [Why a pod will not schedule](#why-a-pod-will-not-schedule)
 - [Logs](#logs)
 - [Detectors](#detectors)
 - [Updating argus](#updating-argus)
@@ -32,6 +33,7 @@ The full reference. For the short version, see [README.md](README.md).
 argus diagnose <workload> -n <ns>    diagnose from the terminal, no MCP involved
 argus logs     <workload> -n <ns>    logs for the failing container, with judgment
 argus triage   [-n <ns>]             what is broken right now, grouped by controller
+argus pending  <workload> -n <ns>    why a workload's pods will not schedule
 argus serve                          MCP server over stdio
 argus capture  <workload> -n <ns>    collect a raw snapshot, print YAML to stdout
 argus version                        print the version
@@ -331,6 +333,56 @@ incomplete — these lookups failed, and any finding relying on them has had its
 Workloads with no pods are not scanned — there is nothing for a pod-level detector
 to see — and the count is reported so the scanned total is explainable rather than
 looking like workloads went missing.
+
+## Why a pod will not schedule
+
+```sh
+argus pending checkout-api -n prod
+```
+
+The scheduler tells you *`0/1 nodes are available: 1 Insufficient memory`*. That is a
+count, not an answer — it does not say how short you are, or on which node, or how
+much of the shortfall is other pods' reservations. Working that out by hand means
+reading every node's allocatable capacity and summing the requests of everything
+already on it, which is tedious, error-prone, and entirely mechanical:
+
+```
+UNSCHEDULABLE  pod/too-big-7dd6cf65df-kr896  (pending 69s)
+asked for      200m cpu, 900.0Gi memory
+scheduler      Unschedulable: 0/1 nodes are available: 1 Insufficient memory. preemption: 0/1 nodes are available: 1 No
+               preemption victims found for incoming pod.
+
+verdict        0 of 1 node(s) could take it
+  · 1 node(s): insufficient memory
+
+per node:
+  ✗ argus-test-control-plane           insufficient memory: needs 900.0Gi, 26.6Gi free of 27.0Gi (426Mi already requested)
+
+not evaluated by argus — if a node above looks like it should fit, the
+answer is probably one of these:
+  · pod topology spread constraints
+  · inter-pod affinity and anti-affinity
+  · PersistentVolume zone or node affinity
+  · extended resources such as GPUs, and hugepages
+  · the maximum pods per node limit
+```
+
+Note it reports **requests**, not usage. The scheduler reserves against what pods
+*asked for*, so a node showing low utilisation can still be full — reaching for usage
+instead is the most common way this arithmetic goes wrong by hand.
+
+### It names what it does not check
+
+The scheduler weighs more than argus does. Topology spread, inter-pod affinity,
+PersistentVolume zone constraints, extended resources like GPUs, and the pods-per-node
+cap are all unevaluated, and the report says so every time. If a pod declares
+`nodeAffinity`, that gets its own line at the top of the list — because the pod
+demonstrably has a constraint argus did not read, and a node shown as fitting may
+still be excluded by it.
+
+A scheduling explanation that implies completeness it does not have is worse than one
+that names its gaps: a reader who believes every constraint was checked stops looking
+in the right place.
 
 ## Logs
 

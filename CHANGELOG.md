@@ -11,6 +11,24 @@ argus is pre-release, and the v0.1 tool surface is complete: `diagnose_workload`
 
 ### Added
 
+- **`explain_pending`** and **`argus pending`** — why a workload's pods will not
+  schedule. The scheduler reports a count ("0/1 nodes are available: 1 Insufficient
+  memory"); this reports the arithmetic, per node: what the pod asked for, what the
+  node has allocatable, how much is already reserved by other pods, and the shortfall.
+  Requests rather than usage, because that is what the scheduler reserves against and
+  reaching for usage is how the sum goes wrong by hand. Also distinguishes cordoned
+  and not-Ready nodes, untolerated taints with full toleration matching semantics, and
+  nodeSelector mismatches that name the label the node actually carries.
+
+  The fit calculation is a pure function over a capacity table, so it is tested without
+  a cluster — including the taint rule that PreferNoSchedule is a preference and never
+  blocks, which if wrong would report a node as unusable that the scheduler would take.
+
+  Every report names what argus did **not** evaluate: topology spread, inter-pod
+  affinity, PV zone constraints, extended resources, pods-per-node. A pod declaring
+  nodeAffinity gets a dedicated warning, because argus does not read affinity
+  expressions and a node shown as fitting may still be excluded by one.
+
 - **`cluster_triage`** and **`argus triage`** — what is broken right now, across a
   namespace or the whole cluster. It deliberately does not loop `diagnose_workload`:
   that would have cost ~1,700 apiserver calls on a 165-workload cluster against a
