@@ -10,6 +10,7 @@
 //	argus diagnose foo -n ns       # run the pipeline from the CLI, no MCP
 //	argus logs foo -n ns           # logs for the failing container, with judgment
 //	argus triage                   # what is broken right now, cluster-wide
+//	argus pending foo -n ns        # why a workload will not schedule
 //	argus update                   # replace this binary with the latest release
 package main
 
@@ -49,6 +50,7 @@ var commands = []struct {
 	{"diagnose", "<workload> -n <ns>", "diagnose a workload: ranked causes, each citing evidence", diagnose},
 	{"logs", "<workload> -n <ns>", "logs for the failing container, with judgment", logs},
 	{"triage", "[-n <ns>]", "what is broken right now, grouped by controller", triage},
+	{"pending", "<workload> -n <ns>", "why a workload's pods will not schedule", pending},
 	{"serve", "", "run as an MCP server over stdio", serve},
 	{"capture", "<workload> -n <ns>", "write a diagnosis snapshot as YAML (the fixture generator)", capture},
 	{"version", "", "print the version", cmdVersion},
@@ -86,6 +88,40 @@ func run(args []string, stdout io.Writer) error {
 
 // cmdUpdate replaces the running binary. The checksum verification and the refusal to clobber a
 // local build live in internal/selfupdate; this is only the flag surface.
+// pending explains unschedulability, node by node.
+func pending(ctx context.Context, args []string, stdout io.Writer) error {
+	fs := flag.NewFlagSet("pending", flag.ContinueOnError)
+	ns := fs.String("n", "", "namespace (required)")
+	fs.StringVar(ns, "namespace", "", "namespace (required)")
+	opts := clusterFlags(fs)
+	describe(fs, "why a workload's pods will not schedule",
+		"argus pending checkout-api -n prod")
+	positional, err := parseInterleaved(fs, args)
+	if err != nil {
+		return err
+	}
+	if len(positional) != 1 {
+		fs.Usage()
+		return fmt.Errorf("pending needs exactly one workload name")
+	}
+
+	c, err := kube.New(*opts)
+	if err != nil {
+		return err
+	}
+	ref, err := c.Resolve(ctx, positional[0], *ns)
+	if err != nil {
+		return err
+	}
+	reports, err := c.Pending(ctx, ref)
+	if err != nil {
+		return err
+	}
+	fmt.Fprint(stdout, detect.RenderPending(reports))
+	fmt.Fprintf(os.Stderr, "\n(%d apiserver calls against %s)\n", c.Calls(), c.Context)
+	return nil
+}
+
 // triage scans a namespace or the whole cluster.
 func triage(ctx context.Context, args []string, stdout io.Writer) error {
 	fs := flag.NewFlagSet("triage", flag.ContinueOnError)

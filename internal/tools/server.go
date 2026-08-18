@@ -57,6 +57,7 @@ func Server(opts kube.Options) *mcp.Server {
 	registerDiagnose(s, opts)
 	registerLogs(s, opts)
 	registerTriage(s, opts)
+	registerPending(s, opts)
 	return s
 }
 
@@ -80,7 +81,7 @@ func registerServerInfo(s *mcp.Server) {
 			Name:     "argus",
 			Version:  Version,
 			ReadOnly: true, // enforced by TestNoMutatingVerbs, not by convention
-			Tools:    []string{"server_info", "diagnose_workload", "get_workload_logs", "cluster_triage"},
+			Tools:    []string{"server_info", "diagnose_workload", "get_workload_logs", "cluster_triage", "explain_pending"},
 		}
 		return nil, out, nil
 	})
