@@ -53,6 +53,14 @@ body{
 
 .wrap{position:relative;z-index:1;max-width:var(--maxw);margin:0 auto;padding:0 24px}
 
+/* ---------- scroll progress ---------- */
+.progress{
+  position:fixed;top:0;left:0;height:2px;width:0;z-index:60;
+  background:linear-gradient(90deg,var(--cyan),var(--violet));
+  box-shadow:0 0 12px color-mix(in srgb,var(--cyan) 60%,transparent);
+  transition:width .08s linear
+}
+
 /* ---------- nav ---------- */
 nav{
   position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);
@@ -63,7 +71,16 @@ nav{
 .brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:-.02em;font-size:1.05rem}
 .nav-links{margin-left:auto;display:flex;gap:22px;align-items:center}
 .nav-links a{color:var(--fg-dim);text-decoration:none;font-size:.9rem;transition:color .2s}
+.nav-links a{position:relative}
 .nav-links a:hover{color:var(--cyan)}
+/* An underline that grows from the centre on hover, and stays lit for the section
+   currently in view — so the nav reports position instead of just offering links. */
+.nav-links a::after{
+  content:"";position:absolute;left:50%;right:50%;bottom:-5px;height:1px;
+  background:var(--cyan);transition:left .25s cubic-bezier(.2,.7,.3,1),right .25s cubic-bezier(.2,.7,.3,1)
+}
+.nav-links a:hover::after,.nav-links a.active::after{left:0;right:0}
+.nav-links a.active{color:var(--cyan)}
 .theme-btn{
   background:var(--panel);border:1px solid var(--line);color:var(--fg-dim);
   border-radius:8px;padding:5px 9px;cursor:pointer;font-size:.95rem;line-height:1;transition:all .2s
@@ -99,7 +116,7 @@ h1{
   -webkit-text-fill-color:transparent;animation:sheen 7s linear infinite
 }
 @keyframes sheen{to{background-position:220% center}}
-.sub{font-size:clamp(1.05rem,2.1vw,1.28rem);color:var(--fg-dim);max-width:660px;margin:0 auto 34px}
+.sub{font-size:clamp(1.05rem,2.1vw,1.28rem);color:var(--fg-dim);max-width:660px;margin:0 auto 34px;line-height:1.68;text-wrap:pretty}
 .cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:14px}
 .btn{
   display:inline-flex;align-items:center;gap:9px;padding:12px 22px;border-radius:11px;
@@ -117,6 +134,12 @@ h1{
    crawler sees a blank document. Motion is an enhancement; the content is not. */
 .js .rv{opacity:0;transform:translateY(26px);transition:opacity .7s cubic-bezier(.2,.7,.3,1),transform .7s cubic-bezier(.2,.7,.3,1)}
 .js .rv.in{opacity:1;transform:none}
+.js .stagger>*{opacity:0;transform:translateY(14px)}
+.js .stagger.in>*{
+  opacity:1;transform:none;
+  transition:opacity .55s cubic-bezier(.2,.7,.3,1),transform .55s cubic-bezier(.2,.7,.3,1);
+  transition-delay:calc(var(--i,0) * 70ms)
+}
 
 /* ---------- sections ---------- */
 section{padding:64px 0;position:relative;z-index:1}
@@ -124,15 +147,17 @@ section{padding:64px 0;position:relative;z-index:1}
   font-family:var(--mono);font-size:.74rem;letter-spacing:.16em;text-transform:uppercase;
   color:var(--cyan);margin-bottom:10px
 }
-h2{font-size:clamp(1.7rem,3.5vw,2.4rem);letter-spacing:-.025em;margin:0 0 14px;font-weight:750}
-.lede{color:var(--fg-dim);max-width:860px;margin:0 0 32px;font-size:1.03rem}
+h2{font-size:clamp(1.75rem,3.4vw,2.35rem);letter-spacing:-.03em;margin:0 0 16px;font-weight:750;text-wrap:balance}
+.lede{color:var(--fg-dim);max-width:820px;margin:0 0 34px;font-size:1.04rem;line-height:1.72;text-wrap:pretty}
 code{
-  font-family:var(--mono);font-size:.88em;color:var(--cyan);
-  background:color-mix(in srgb,var(--panel-2) 70%,transparent);
-  padding:.1em .35em;border-radius:5px;border:1px solid var(--line);
-  /* A bordered chip broken across two lines reads as damage rather than as one token. Safe to
-     pin because every inline use here is a short identifier or a two-word command. */
+  font-family:var(--mono);font-size:.9em;letter-spacing:-.01em;
+  color:color-mix(in srgb,var(--cyan) 78%,var(--fg));
   white-space:nowrap
+}
+/* Chips are reserved for the places a token is a label rather than part of a sentence. */
+.safe-item code,.card .sig code{
+  background:color-mix(in srgb,var(--panel-2) 70%,transparent);
+  padding:.1em .35em;border-radius:5px;border:1px solid var(--line)
 }
 
 /* ---------- convergence diagram ---------- */
@@ -219,7 +244,7 @@ code{
 .safe-item{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--green);border-radius:11px;padding:18px}
 .safe-item h4{margin:0 0 6px;font-size:.95rem}
 .safe-item p{margin:0;font-size:.88rem;color:var(--fg-dim)}
-.safe-item code{font-size:.8rem}
+.safe-item code{font-size:.82em}
 
 /* ---------- install ---------- */
 .code{
@@ -248,12 +273,13 @@ footer a:hover{color:var(--cyan)}
 
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
-  .js .rv{opacity:1;transform:none}
+  .js .rv,.js .stagger>*{opacity:1;transform:none}
   html{scroll-behavior:auto}
 }
 </style>
 </head>
 <body>
+<div class="progress" id="progress" aria-hidden="true"></div>
 <div class="bg-grid"></div><div class="bg-orb orb-a"></div><div class="bg-orb orb-b"></div>
 
 <nav>
@@ -371,7 +397,7 @@ findings   1 (1 critical)
     <h2>Context discipline</h2>
     <p class="lede">From one real production Deployment with 93 environment variables and 11 ReplicaSets.</p>
   </div>
-  <div class="stats rv">
+  <div class="stats rv stagger">
     <div class="stat"><div class="n" data-to="326">0</div><div class="l">tokens per pod</div><div class="was">was 946 · budget 400</div></div>
     <div class="stat"><div class="n" data-to="3300" data-fmt="k">0</div><div class="l">tokens per snapshot</div><div class="was">was ~10,400</div></div>
     <div class="stat"><div class="n" data-to="13">0</div><div class="l">apiserver calls</div><div class="was">hard cap 60</div></div>
@@ -390,7 +416,7 @@ findings   1 (1 critical)
       costs more time than it saves.
     </p>
   </div>
-  <div class="grid rv">
+  <div class="grid rv stagger">
     <div class="card"><h3>crashloop.*</h3><p>Reads the <em>exit code</em> instead of restating CrashLoopBackOff. A broken entrypoint, a container that exits zero and should be a Job, SIGSEGV, an abort, a liveness-probe SIGTERM — each gets its own remedy.</p><span class="sig">lastState reason + exit code + the runtime's own error</span></div>
     <div class="card"><h3>oomkill.limit-too-low</h3><p>The kernel killed it for exceeding its own limit — with a suggested new limit when usage data supports one.</p><span class="sig">lastState.reason=OOMKilled + limit + peak usage</span></div>
     <div class="card"><h3>rollout.bad-template</h3><p>The new revision is failing and the previous one was healthy. Reports the fields that changed between them.</p><span class="sig">RS health pair + semantic template diff</span></div>
@@ -411,7 +437,7 @@ findings   1 (1 critical)
       kubeconfig, where RBAC grants you everything. So the binary holds the line instead.
     </p>
   </div>
-  <div class="safe rv">
+  <div class="safe rv stagger">
     <div class="safe-item">
       <h4>No mutating call site</h4>
       <p>A test walks the entire source AST and fails the build on any call to <code>Create</code>, <code>Update</code>, <code>Patch</code>, <code>Delete</code>, <code>Apply</code> or <code>Evict</code> — with a companion test proving the walk can actually fail.</p>
@@ -460,7 +486,7 @@ findings   1 (1 critical)
     <p class="eyebrow">Roadmap</p>
     <h2>Honest about what exists</h2>
   </div>
-  <ul class="roadmap rv">
+  <ul class="roadmap rv stagger">
     <li><span class="pill pill-now">shipping</span><span><strong>diagnose_workload</strong> — the flagship: a fuzzy workload name in, ranked causes out, every one citing the evidence it used</span></li>
     <li><span class="pill pill-now">shipping</span><span><strong>cluster_triage</strong> — what is broken right now, grouped by controller. 130 workloads in 10 apiserver calls, constant in cluster size, because it inverts the data flow instead of looping the diagnosis</span></li>
     <li><span class="pill pill-now">shipping</span><span><strong>get_workload_logs</strong> — picks the failing container over sidecars, reads the <code>previous</code> instance on a crashloop, collapses repeated lines, redacts credentials, budgets by tokens. Took a real crashloop from 206 lines to 7</span></li>
@@ -539,6 +565,33 @@ findings   1 (1 critical)
     label.setAttribute("class", "kind");
     label.textContent = k;
     g.appendChild(label);
+  });
+
+  /* ---- scroll progress + which section you are in ---- */
+  var bar = document.getElementById("progress");
+  var navLinks = [].slice.call(document.querySelectorAll('.nav-links a[href^="#"]'));
+  var targets = navLinks.map(function(a){ return document.querySelector(a.getAttribute("href")); });
+
+  function onScroll(){
+    var h = document.documentElement.scrollHeight - innerHeight;
+    bar.style.width = (h > 0 ? (scrollY / h) * 100 : 0) + "%";
+
+    // The section whose top has most recently passed a third of the viewport is the
+    // one being read. Cheaper and steadier than an observer per section, and it does
+    // not flicker when two sections are on screen at once.
+    var active = -1;
+    for (var i = 0; i < targets.length; i++){
+      if (targets[i] && targets[i].getBoundingClientRect().top <= innerHeight / 3) active = i;
+    }
+    navLinks.forEach(function(a, i){ a.classList.toggle("active", i === active); });
+  }
+  addEventListener("scroll", onScroll, {passive:true});
+  addEventListener("resize", onScroll, {passive:true});
+  onScroll();
+
+  /* ---- stagger: number the children so each arrives a beat after the last ---- */
+  document.querySelectorAll(".stagger").forEach(function(g){
+    [].slice.call(g.children).forEach(function(c, i){ c.style.setProperty("--i", i); });
   });
 
   /* ---- scroll reveal ----
