@@ -354,3 +354,86 @@ type TriageResult struct {
 	Degraded []string      `json:"degraded,omitempty"`
 	Notes    []string      `json:"notes,omitempty"`
 }
+
+// ── scheduling ────────────────────────────────────────────────────────────────
+//
+// Explaining why a pod will not schedule is arithmetic a human does badly under
+// pressure: for every node, subtract what is already committed from what exists and
+// compare against what the pod asked for, while also checking taints and labels. It
+// is tedious by hand and entirely mechanical, which makes it the ideal thing to
+// hand to a program.
+
+// Taint is a node taint reduced to what a toleration check needs.
+type Taint struct {
+	Key    string `json:"key"`
+	Value  string `json:"value,omitempty"`
+	Effect string `json:"effect"`
+}
+
+// Toleration is a pod toleration, matching Kubernetes' semantics for the fields that
+// actually decide whether a taint is tolerated.
+type Toleration struct {
+	Key      string `json:"key,omitempty"`
+	Operator string `json:"operator,omitempty"` // Equal (default) | Exists
+	Value    string `json:"value,omitempty"`
+	Effect   string `json:"effect,omitempty"` // empty matches every effect
+}
+
+// NodeCapacity is one node's schedulable state: what it has, what is already
+// committed on it, and what would keep a pod off it.
+type NodeCapacity struct {
+	Name          string            `json:"name"`
+	Labels        map[string]string `json:"labels,omitempty"`
+	Taints        []Taint           `json:"taints,omitempty"`
+	Unschedulable bool              `json:"unschedulable,omitempty"`
+	Ready         bool              `json:"ready"`
+
+	AllocCPUMilli int64 `json:"alloc_cpu_milli"`
+	AllocMemBytes int64 `json:"alloc_mem_bytes"`
+	// Used is the sum of REQUESTS of pods already assigned here, which is what the
+	// scheduler reserves against — not current usage, which is a different number and
+	// the one people reach for by mistake.
+	UsedCPUMilli int64 `json:"used_cpu_milli"`
+	UsedMemBytes int64 `json:"used_mem_bytes"`
+}
+
+// PendingSpec is what the unschedulable pod is asking for.
+type PendingSpec struct {
+	NeedCPUMilli int64             `json:"need_cpu_milli"`
+	NeedMemBytes int64             `json:"need_mem_bytes"`
+	NodeSelector map[string]string `json:"node_selector,omitempty"`
+	Tolerations  []Toleration      `json:"tolerations,omitempty"`
+	HasAffinity  bool              `json:"has_node_affinity,omitempty"`
+}
+
+// NodeFit is the verdict for one node, with the numbers that produced it.
+type NodeFit struct {
+	Node string `json:"node"`
+	Fits bool   `json:"fits"`
+	// Reasons is empty when the node fits. Each entry names the check and its numbers,
+	// because "insufficient memory" without the figures is not an explanation.
+	Reasons []string `json:"reasons,omitempty"`
+
+	FreeCPUMilli int64 `json:"free_cpu_milli"`
+	FreeMemBytes int64 `json:"free_mem_bytes"`
+}
+
+// PendingReport explains one pod's unschedulability.
+type PendingReport struct {
+	Pod            string `json:"pod"`
+	Namespace      string `json:"namespace"`
+	PendingSeconds int64  `json:"pending_seconds"`
+	// Reason/Message are the scheduler's own words from the PodScheduled condition,
+	// reported alongside our arithmetic rather than instead of it.
+	Reason  string `json:"scheduler_reason,omitempty"`
+	Message string `json:"scheduler_message,omitempty"`
+
+	Spec  PendingSpec `json:"asked_for"`
+	Nodes []NodeFit   `json:"nodes"`
+
+	Feasible int      `json:"feasible_nodes"`
+	Summary  []string `json:"summary"`
+	// NotChecked states the limits of the analysis. A scheduling explanation that
+	// implies completeness it does not have is worse than one that names its gaps.
+	NotChecked []string `json:"not_checked,omitempty"`
+}
