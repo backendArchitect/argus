@@ -104,6 +104,11 @@ func detectCrashLoop(s *model.Snapshot) []model.Finding {
 			// already come back, whatever it did earlier — and one that is running but not ready is
 			// a readiness problem, which detectReadinessMisconfigured owns.
 			//
+			// Deliberately keyed on the STATE rather than its reason string. Those strings do drift:
+			// a missing entrypoint reports waiting.reason=CrashLoopBackOff on k8s 1.25 and
+			// RunContainerError on 1.35, both meaning the same thing. Checking Status=="waiting"
+			// survives that; matching the reason would have broken silently on upgrade.
+			//
 			// This is a stricter rule than a time window, and it exists because a time window was
 			// not enough: a kind node's containerd churned and restarted every pod with exit 255 /
 			// reason=Unknown, and a 1-hour window then reported a healthy, serving workload as
