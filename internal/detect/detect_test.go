@@ -28,8 +28,11 @@ var fixtures = map[string][]string{
 	"readiness-too-fast": {"probe.readiness-misconfigured", "endpoints.no-ready-backends"},
 	"endpoint-gap":       {"endpoints.selector-matches-nothing"},
 	"bad-rollout":        {"rollout.bad-template", "oomkill.limit-too-low"},
-	"healthy":            {},
-	"node-pressure":      {"node.unhealthy-host"},
+	// Captured on k8s 1.35 mid-collapse. Moments earlier the same rollout was fully served by
+	// the old revision and argus said nothing was wrong; see the fixture's header.
+	"rollout-stalled": {"rollout.bad-template", "oomkill.limit-too-low"},
+	"healthy":         {},
+	"node-pressure":   {"node.unhealthy-host"},
 	// The most common Kubernetes failure of all, and argus was silent on it until now.
 	"crashloop-nonzero":    {"crashloop.exiting-nonzero"},
 	"crashloop-wont-start": {"crashloop.container-wont-start"},

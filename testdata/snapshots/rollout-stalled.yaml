@@ -1,0 +1,299 @@
+# Captured from k8s 1.35 — the version this project's production clusters run.
+#
+# A rollout mid-collapse: revision 2 wants 2 replicas and has 0 ready, while revision 1 is
+# down to its last serving pod. The Deployment reports 1 of 2 ready, so capacity is
+# degraded and this grades CRITICAL.
+#
+# It is here because of what it caught. The detector used to require the WORKLOAD to be
+# degraded before it would speak, and moments before this capture the same rollout sat at
+# 2/2 ready — revision 1 covering every request while revision 2 could not start at all —
+# and argus reported nothing wrong. That is the shape a bad deploy usually has, because a
+# safe rollout strategy is designed to keep the workload up while the deploy fails. The
+# e2e gate against 1.35 surfaced it; every fixture here, all captured on 1.25 where the old
+# pods had already gone, agreed with the bug.
+#
+# The condition is now "the current ReplicaSet has replicas it should be running and fewer
+# are ready", which does not care whether the workload is still covered. Severity does: a
+# wedged deploy that still serves every request grades WARNING, because calling it the
+# same as an outage is how a severity scale stops meaning anything.
+degraded:
+- 'metrics: the server could not find the requested resource (get pods.metrics.k8s.io)'
+events:
+- count: 1
+  first_seen_seconds_ago: 0
+  last_seen_seconds_ago: 0
+  message: Back-off restarting failed container app in pod bad-rollout-<hash>-x6bmt_argus-broken(<uid>)
+  object_count: 1
+  object_kind: Pod
+  object_name: bad-rollout-86787d6d5b-x6bmt
+  reason: BackOff
+  type: Warning
+- count: 6
+  first_seen_seconds_ago: 182
+  last_seen_seconds_ago: 1
+  message: Back-off restarting failed container app in pod bad-rollout-<hash>-gm5cr_argus-broken(<uid>)
+  object_count: 1
+  object_kind: Pod
+  object_name: bad-rollout-86787d6d5b-gm5cr
+  reason: BackOff
+  type: Warning
+- count: 10
+  first_seen_seconds_ago: 184
+  last_seen_seconds_ago: 1
+  message: Container created
+  object_count: 4
+  object_kind: Pod
+  object_name: bad-rollout-5d497cbf45-hcngr
+  reason: Created
+  type: Normal
+- count: 8
+  first_seen_seconds_ago: 183
+  last_seen_seconds_ago: 1
+  message: Container image "python:3.12-alpine" already present on machine and can
+    be accessed by the pod
+  object_count: 2
+  object_kind: Pod
+  object_name: bad-rollout-86787d6d5b-gm5cr
+  reason: Pulled
+  type: Normal
+- count: 10
+  first_seen_seconds_ago: 184
+  last_seen_seconds_ago: 1
+  message: Container started
+  object_count: 4
+  object_kind: Pod
+  object_name: bad-rollout-5d497cbf45-hcngr
+  reason: Started
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 2
+  last_seen_seconds_ago: 2
+  message: Stopping container app
+  object_count: 1
+  object_kind: Pod
+  object_name: bad-rollout-5d497cbf45-z6n2f
+  reason: Killing
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 2
+  last_seen_seconds_ago: 2
+  message: Scaled down replica set bad-rollout-<hash> from 2 to 1
+  object_count: 1
+  object_kind: Deployment
+  object_name: bad-rollout
+  reason: ScalingReplicaSet
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 2
+  last_seen_seconds_ago: 2
+  message: Scaled up replica set bad-rollout-<hash> from 1 to 2
+  object_count: 1
+  object_kind: Deployment
+  object_name: bad-rollout
+  reason: ScalingReplicaSet
+  type: Normal
+- count: 4
+  first_seen_seconds_ago: 185
+  last_seen_seconds_ago: 2
+  message: Successfully assigned argus-broken/bad-rollout-<pod> to argus-135-control-plane
+  object_count: 4
+  object_kind: Pod
+  object_name: bad-rollout-5d497cbf45-hcngr
+  reason: Scheduled
+  type: Normal
+- count: 4
+  first_seen_seconds_ago: 185
+  last_seen_seconds_ago: 2
+  message: 'Created pod: bad-rollout-<pod>'
+  object_count: 2
+  object_kind: ReplicaSet
+  object_name: bad-rollout-5d497cbf45
+  reason: SuccessfulCreate
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 2
+  last_seen_seconds_ago: 2
+  message: 'Deleted pod: bad-rollout-<pod>'
+  object_count: 1
+  object_kind: ReplicaSet
+  object_name: bad-rollout-5d497cbf45
+  reason: SuccessfulDelete
+  type: Normal
+- count: 2
+  first_seen_seconds_ago: 184
+  last_seen_seconds_ago: 184
+  message: Container image "registry.k8s.io/pause:3.9" already present on machine
+    and can be accessed by the pod
+  object_count: 2
+  object_kind: Pod
+  object_name: bad-rollout-5d497cbf45-hcngr
+  reason: Pulled
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 184
+  last_seen_seconds_ago: 184
+  message: Scaled up replica set bad-rollout-<hash> from 0 to 1
+  object_count: 1
+  object_kind: Deployment
+  object_name: bad-rollout
+  reason: ScalingReplicaSet
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 185
+  last_seen_seconds_ago: 185
+  message: Scaled up replica set bad-rollout-<hash> from 0 to 2
+  object_count: 1
+  object_kind: Deployment
+  object_name: bad-rollout
+  reason: ScalingReplicaSet
+  type: Normal
+namespace: argus-broken
+nodes:
+- alloc_cpu: "16"
+  alloc_mem: 28358540Ki
+  name: argus-135-control-plane
+  ready: true
+pods:
+- containers:
+  - image: python:3.12-alpine
+    last_state:
+      exit_code: 137
+      reason: OOMKilled
+      seconds_ago: 88
+      status: terminated
+    limit_mem: 32Mi
+    name: app
+    ready: false
+    request_cpu: 10m
+    request_mem: 16Mi
+    restart_count: 5
+    started: false
+    state:
+      exit_code: 137
+      reason: OOMKilled
+      seconds_ago: 2
+      status: terminated
+  created_seconds_ago: 184
+  labels:
+    app: bad-rollout
+    pod-template-hash: 86787d6d5b
+  name: bad-rollout-86787d6d5b-gm5cr
+  node: argus-135-control-plane
+  owner_kind: ReplicaSet
+  owner_name: bad-rollout-86787d6d5b
+  phase: Running
+  ready: false
+- containers:
+  - image: python:3.12-alpine
+    last_state:
+      exit_code: 137
+      reason: OOMKilled
+      seconds_ago: 1
+      status: terminated
+    limit_mem: 32Mi
+    name: app
+    ready: false
+    request_cpu: 10m
+    request_mem: 16Mi
+    restart_count: 1
+    started: false
+    state:
+      exit_code: 137
+      reason: OOMKilled
+      seconds_ago: 1
+      status: terminated
+  created_seconds_ago: 2
+  labels:
+    app: bad-rollout
+    pod-template-hash: 86787d6d5b
+  name: bad-rollout-86787d6d5b-x6bmt
+  node: argus-135-control-plane
+  owner_kind: ReplicaSet
+  owner_name: bad-rollout-86787d6d5b
+  phase: Running
+  ready: false
+- containers:
+  - image: registry.k8s.io/pause:3.9
+    limit_mem: 64Mi
+    name: app
+    ready: true
+    request_cpu: 10m
+    request_mem: 8Mi
+    restart_count: 0
+    started: true
+    state:
+      seconds_ago: 184
+      status: running
+  created_seconds_ago: 185
+  labels:
+    app: bad-rollout
+    pod-template-hash: 5d497cbf45
+  name: bad-rollout-5d497cbf45-hcngr
+  node: argus-135-control-plane
+  owner_kind: ReplicaSet
+  owner_name: bad-rollout-5d497cbf45
+  phase: Running
+  ready: true
+replicasets:
+- available: 0
+  created_seconds_ago: 184
+  current: true
+  desired: 2
+  name: bad-rollout-86787d6d5b
+  ready: 0
+  revision: "2"
+  template:
+  - command:
+    - python
+    - -u
+    - -c
+    - |-
+      a=bytearray()
+      while True: a += bytes(5*10**6)
+    env_keys:
+    - LOG_LEVEL
+    image: python:3.12-alpine
+    limit_mem: 32Mi
+    name: app
+    request_cpu: 10m
+    request_mem: 16Mi
+- available: 1
+  created_seconds_ago: 185
+  current: false
+  desired: 1
+  name: bad-rollout-5d497cbf45
+  ready: 1
+  revision: "1"
+  template:
+  - env_keys:
+    - LOG_LEVEL
+    image: registry.k8s.io/pause:3.9
+    limit_mem: 64Mi
+    name: app
+    request_cpu: 10m
+    request_mem: 8Mi
+scope: workload/argus-broken/bad-rollout
+workload:
+  available: 1
+  conditions:
+  - last_change_seconds_ago: 185
+    message: ReplicaSet "bad-rollout-86787d6d5b" is progressing.
+    reason: ReplicaSetUpdated
+    status: "True"
+    type: Progressing
+  - last_change_seconds_ago: 1
+    message: Deployment does not have minimum availability.
+    reason: MinimumReplicasUnavailable
+    status: "False"
+    type: Available
+  created_seconds_ago: 185
+  desired: 2
+  generation: 2
+  kind: Deployment
+  name: bad-rollout
+  namespace: argus-broken
+  observed_generation: 2
+  ready: 1
+  selector:
+    app: bad-rollout
+  updated: 2

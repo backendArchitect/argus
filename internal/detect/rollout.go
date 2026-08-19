@@ -16,23 +16,26 @@ import (
 // Without the second half this is just "the workload is broken", which the user
 // already knew.
 func detectBadRollout(s *model.Snapshot) []model.Finding {
-	// The workload itself must actually be unhealthy. This guard is the important one: it does not
-	// depend on getting ReplicaSet bookkeeping right, and ReplicaSet bookkeeping is exactly what
-	// went wrong on a live cluster — a rollback leaves a superseded RS looking current, and a
-	// perfectly healthy 1/1 Deployment was reported as a failing rollout.
-	//
-	// If the Deployment reports its full complement ready, nothing is failing, whatever the
-	// ReplicaSets say.
-	if s.Workload == nil || s.Workload.Desired == 0 || s.Workload.Ready >= s.Workload.Desired {
+	if s.Workload == nil || s.Workload.Desired == 0 {
 		return nil
 	}
-
 	current, previous := currentRS(s)
 	if current == nil || previous == nil {
 		return nil
 	}
-	// Healthy current rollout — nothing to say.
-	if current.Desired > 0 && current.Ready >= current.Desired {
+
+	// The condition is that the current ReplicaSet is TRYING and FAILING: it has replicas it is
+	// supposed to run, and fewer of them are ready.
+	//
+	// This deliberately does not require the workload to be degraded. A stalled rollout usually
+	// leaves the workload perfectly available — maxUnavailable keeps the previous revision serving
+	// while the new one cannot come up — so gating on workload health suppressed the single most
+	// common real shape of a bad deploy. Found by running against k8s 1.35: 2/2 ready at the
+	// Deployment, new RS stuck at 0 of 1, wedged indefinitely and reported as nothing wrong.
+	//
+	// Requiring Desired > 0 is what keeps the old false positive dead: a rollback leaves a
+	// superseded RS labelled current with Desired 0, and a scaled-down RS is not a failing one.
+	if current.Desired == 0 || current.Ready >= current.Desired {
 		return nil
 	}
 	// A brand-new rollout that has not had time to come up yet is not a bad
@@ -58,18 +61,32 @@ func detectBadRollout(s *model.Snapshot) []model.Finding {
 		ev = append(ev, evidence("replicaset.diff", "rs/"+current.Name, "%s", d))
 	}
 
+	// A rollout that is stuck while the old revision still serves every request is a real
+	// problem, but it is not an outage, and calling it critical alongside actual outages is how
+	// a severity scale stops meaning anything.
+	stalled := s.Workload.Ready >= s.Workload.Desired
+	severity := model.Critical
+	traffic := fmt.Sprintf("Only %d of %d replicas are ready, so capacity is degraded.",
+		s.Workload.Ready, s.Workload.Desired)
+	if stalled {
+		severity = model.Warning
+		traffic = fmt.Sprintf("Traffic is unaffected — revision %s is still serving all %d "+
+			"replicas — so this will not page anyone, and will stay stuck until someone looks.",
+			previous.Revision, s.Workload.Ready)
+	}
+
 	return []model.Finding{{
 		ID:         "rollout.bad-template",
-		Severity:   model.Critical,
+		Severity:   severity,
 		Confidence: confidence(s, 0.8, "replicasets"),
 		Scope:      workloadScope(s),
-		Title: fmt.Sprintf("Revision %s is failing; revision %s was healthy",
+		Title: fmt.Sprintf("Revision %s cannot come up; revision %s was healthy",
 			current.Revision, previous.Revision),
 		Detail: fmt.Sprintf("The current ReplicaSet %s has %d of %d replicas ready, and it "+
-			"replaced %s. %d field(s) changed between the two revisions — the failure began "+
+			"replaced %s. %s %d field(s) changed between the two revisions — the failure began "+
 			"with this rollout, so the cause is almost certainly among them. Rolling back "+
 			"restores the previous revision while you work out which.",
-			current.Name, current.Ready, current.Desired, previous.Name, len(diffs)),
+			current.Name, current.Ready, current.Desired, previous.Name, traffic, len(diffs)),
 		Evidence: ev,
 		NextTool: &model.ToolHint{
 			Tool:   "get_workload_logs",
