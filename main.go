@@ -51,6 +51,7 @@ var commands = []struct {
 	{"logs", "<workload> -n <ns>", "logs for the failing container, with judgment", logs},
 	{"triage", "[-n <ns>]", "what is broken right now, grouped by controller", triage},
 	{"pending", "<workload> -n <ns>", "why a workload's pods will not schedule", pending},
+	{"trace", "<service> -n <ns>", "trace the request path to a Service, and where it breaks", trace},
 	{"serve", "", "run as an MCP server over stdio", serve},
 	{"capture", "<workload> -n <ns>", "write a diagnosis snapshot as YAML (the fixture generator)", capture},
 	{"version", "", "print the version", cmdVersion},
@@ -86,8 +87,36 @@ func run(args []string, stdout io.Writer) error {
 	return fmt.Errorf("unknown command %q — run 'argus help' for the list", args[0])
 }
 
-// cmdUpdate replaces the running binary. The checksum verification and the refusal to clobber a
-// local build live in internal/selfupdate; this is only the flag surface.
+// trace follows the request path to a Service and reports the first hop that breaks.
+func trace(ctx context.Context, args []string, stdout io.Writer) error {
+	fs := flag.NewFlagSet("trace", flag.ContinueOnError)
+	ns := fs.String("n", "", "namespace (required)")
+	fs.StringVar(ns, "namespace", "", "namespace (required)")
+	opts := clusterFlags(fs)
+	describe(fs, "trace the request path to a Service and report the first hop that breaks",
+		"argus trace checkout-api -n prod")
+	positional, err := parseInterleaved(fs, args)
+	if err != nil {
+		return err
+	}
+	if len(positional) != 1 {
+		fs.Usage()
+		return fmt.Errorf("trace needs exactly one service name")
+	}
+
+	c, err := kube.New(*opts)
+	if err != nil {
+		return err
+	}
+	r, err := c.Trace(ctx, positional[0], *ns)
+	if err != nil {
+		return err
+	}
+	fmt.Fprint(stdout, detect.RenderTrace(r))
+	fmt.Fprintf(os.Stderr, "\n(%d apiserver calls against %s)\n", c.Calls(), c.Context)
+	return nil
+}
+
 // pending explains unschedulability, node by node.
 func pending(ctx context.Context, args []string, stdout io.Writer) error {
 	fs := flag.NewFlagSet("pending", flag.ContinueOnError)
@@ -151,6 +180,8 @@ func triage(ctx context.Context, args []string, stdout io.Writer) error {
 	return nil
 }
 
+// cmdUpdate replaces the running binary. The checksum verification and the refusal to clobber a
+// local build live in internal/selfupdate; this is only the flag surface.
 func cmdUpdate(ctx context.Context, args []string, stdout io.Writer) error {
 	fs := flag.NewFlagSet("update", flag.ContinueOnError)
 	force := fs.Bool("force", false, "replace even a locally-built binary (this discards your local build)")
