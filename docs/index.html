@@ -384,7 +384,7 @@ findings   1 (1 critical)
     <table class="cmp">
       <thead><tr><th></th><th>Typical k8s MCP server</th><th style="color:var(--cyan)">argus</th></tr></thead>
       <tbody>
-        <tr><th>Tool surface</th><td class="them">40–100+, mirroring kubectl</td><td class="us">3, one per SRE question</td></tr>
+        <tr><th>Tool surface</th><td class="them">40–100+, mirroring kubectl</td><td class="us">6, one per SRE question</td></tr>
         <tr><th>Correlation</th><td class="them">the model does it, over many calls</td><td class="us">server-side, in one call</td></tr>
         <tr><th>Output</th><td class="them">raw objects to interpret</td><td class="us">ranked findings, evidence mandatory</td></tr>
         <tr><th>Context per pod</th><td class="them">2,000+ tokens</td><td class="us">under 400, enforced by test</td></tr>
@@ -497,7 +497,8 @@ findings   1 (1 critical)
     <li><span class="pill pill-now">shipping</span><span><strong>get_workload_logs</strong> — picks the failing container over sidecars, reads the <code>previous</code> instance on a crashloop, collapses repeated lines, redacts credentials, budgets by tokens. Took a real crashloop from 206 lines to 7</span></li>
     <li><span class="pill pill-now">shipping</span><span>Seven detectors over 19 named causes · the broken-fixture suite, plus a nightly gate that runs them against live clusters on two Kubernetes versions · projection &amp; event dedup · fuzzy resolution across Deployment/StatefulSet/DaemonSet/Rollout · <code>capture</code> as the fixture generator · read-only enforced as a build gate · checksum-verified self-update</span></li>
     <li><span class="pill pill-now">shipping</span><span><strong>explain_pending</strong> — why a pod will not schedule, with the arithmetic per node: what it asked for, what is free, and how much other pods already reserve. Names the constraints it does <em>not</em> evaluate</span></li>
-    <li><span class="pill pill-later">v0.2</span><span><strong>trace_service_path</strong> · informer cache</span></li>
+    <li><span class="pill pill-now">shipping</span><span><strong>trace_service_path</strong> — the Service is up, the pods are Ready, and traffic still 503s. Walks Ingress&nbsp;→&nbsp;selector&nbsp;→&nbsp;targetPort&nbsp;→&nbsp;endpoints&nbsp;→&nbsp;readiness and names the <em>first</em> hop that breaks. Catches the silent one: a <code>targetPort</code> naming a port no container declares leaves the EndpointSlice with no port at all, so every connection is refused while <code>kubectl get</code> shows a healthy system</span></li>
+    <li><span class="pill pill-later">not building</span><span><strong>informer cache</strong> — argued against rather than deferred. It buys nothing for the CLI, and for the server it trades the call budget for a staleness window: a 30-second-old pod state mid-rollout is worse than 13 live calls, because the answer is confidently wrong rather than slow</span></li>
     <li><span class="pill pill-later">v0.3</span><span>GKE Cloud Logging fallback for evicted pods · <strong>compare_environments</strong> · <strong>check_reachability</strong> · in-cluster deployment with Workload Identity</span></li>
     <li><span class="pill pill-later">maybe never</span><span>Mutations <em>against a cluster</em>. That is where the liability is; read-only diagnosis is where nearly all the value is. The one exception already shipped is <code>argus update</code>, which replaces argus's own binary against a published checksum and grants no cluster write access.</span></li>
   </ul>

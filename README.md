@@ -21,9 +21,10 @@ by hand.
 
 🌐 **[See it in action → backendarchitect.github.io/argus](https://backendarchitect.github.io/argus/)**
 
-> **Status: pre-release.** `diagnose_workload` works end to end — six detectors, ranked findings,
-> mandatory evidence — and is verified against fixtures captured from real clusters.
-> All three v0.1 tools work. See [Roadmap](#roadmap) for what is next.
+> **Status: pre-release.** Six tools work end to end — seven detectors over 19 named causes,
+> ranked findings, mandatory evidence — verified against fixtures captured from real clusters and
+> against live clusters on two Kubernetes versions nightly. See [Roadmap](#roadmap) for what is
+> next, and for the one v0.2 item deliberately left unbuilt.
 
 ---
 
@@ -39,7 +40,7 @@ argus takes the opposite position: **the unit of work is a question, not a resou
 
 | | Resource-shaped servers | argus |
 |---|---|---|
-| Tool surface | 40–100+ tools mirroring kubectl | 3 tools, one per SRE question |
+| Tool surface | 40–100+ tools mirroring kubectl | 6 tools, one per SRE question |
 | Correlation | the model does it, over many calls | done server-side, in one call |
 | Output | raw objects | ranked findings with mandatory evidence |
 | Context per pod | 2,000+ tokens | **under 400**, enforced by test |
@@ -62,6 +63,9 @@ argus triage
 
 # Why won't it schedule? Per-node arithmetic, not just "Insufficient memory".
 argus pending checkout-api -n prod
+
+# The Service is up and the pods are ready, so why does traffic not arrive?
+argus trace checkout-api -n prod
 
 # Logs for the failing container — previous instance if it is crashlooping.
 argus logs checkout-api -n prod
@@ -205,6 +209,12 @@ claude mcp add argus -- argus serve
 - **`explain_pending`** — why a pod will not schedule, with per-node arithmetic: what it asked
   for, what each node has free, and how much is already reserved by other pods. Names the
   constraints it does *not* evaluate rather than implying completeness
+- **`trace_service_path`** — the Service is up, the pods are ready, and traffic still does not
+  arrive. Walks Ingress rule → selector → targetPort → endpoint addresses → readiness and reports
+  the **first** hop that breaks, since everything past it is unreachable rather than unhealthy.
+  Catches the silent one: a `targetPort` naming a containerPort no container declares leaves the
+  EndpointSlice with no port at all, so every connection is refused while `kubectl get
+  svc,pods,ingress` shows nothing wrong
 - **`argus update`** — verified, atomic self-update
 - **Seven detectors, 19 finding IDs** — crash loop (which distinguishes a container the runtime *cannot start* from
   one that starts and exits, and reads the exit code: wrong entrypoint, segfault, abort, exits-zero,
@@ -225,7 +235,7 @@ claude mcp add argus -- argus serve
 
 **v0.1 is complete.**
 
-**v0.2** — `trace_service_path`, informer cache.
+**v0.2 is complete** except the informer cache, which is deliberately unbuilt — see below.
 **v0.3** — GKE integrations (Cloud Logging fallback for dead pods, Autopilot, Managed Prometheus),
 `compare_environments`, `check_reachability`, in-cluster deployment with Workload Identity.
 
@@ -233,6 +243,14 @@ claude mcp add argus -- argus serve
 template diff it would have provided lives inside the `rollout.bad-template` detector instead, so
 you get it as part of a diagnosis rather than as a separate call. Noted here because it vanished
 from the plan without explanation otherwise.
+
+**Argued against rather than deferred.** The informer cache was on the v0.2 list to cut apiserver
+calls on repeat queries. It buys nothing for the CLI, which is short-lived by construction, and for
+`serve` it trades the call budget for a staleness window — a cache returning a 30-second-old pod
+state mid-rollout is worse than 13 live calls, because the answer is confidently wrong rather than
+slow. The measured cost is not a problem: 13 calls for a diagnosis, 10 for a 130-workload triage,
+against a budget of 60. If it is ever built, the defensible shape is watches on Events and Pods
+only, with cache age recorded in `notes` so a detector can dock its confidence.
 
 **Later, maybe never** — mutations against a cluster. That is where the liability is; read-only
 diagnosis is where nearly all the value is. Note the one exception already shipped: `argus update`

@@ -18,6 +18,7 @@ The full reference. For the short version, see [README.md](README.md).
 - [Connect an AI editor (MCP)](#connect-an-ai-editor-mcp)
 - [Triage](#triage)
 - [Why a pod will not schedule](#why-a-pod-will-not-schedule)
+- [Why traffic does not arrive](#why-traffic-does-not-arrive)
 - [Logs](#logs)
 - [Detectors](#detectors)
 - [Updating argus](#updating-argus)
@@ -384,6 +385,66 @@ A scheduling explanation that implies completeness it does not have is worse tha
 that names its gaps: a reader who believes every constraint was checked stops looking
 in the right place.
 
+## Why traffic does not arrive
+
+```sh
+argus trace checkout-api -n prod
+```
+
+The hardest version of this question is the one where nothing is broken. The Deployment is 1/1,
+the pod is Ready, the Service has an endpoint, the Ingress exists — and traffic still gets a 503.
+`kubectl get svc,pods,ingress` shows a healthy system, so the usual loop of describing each object
+in turn finds nothing and you start guessing.
+
+`trace` walks the path in the order traffic takes it and reports the **first** hop that gives out:
+
+| Hop | What breaks there |
+|---|---|
+| `ingress` | a rule's backend port names a port the Service does not declare — the controller cannot resolve a backend and answers 503 |
+| `selector` | the selector matches no pods, distinguishing a **label typo** from a workload that is not deployed here |
+| `target-port` | `targetPort` names a containerPort no container declares |
+| `endpoints` | pods matched but produced no address, so nothing was ever programmed |
+| `readiness` | addresses exist and none are ready — kube-proxy programs only ready ones |
+
+Only the first break is reported. Everything past it is marked *not reachable* rather than
+healthy, because a selector matching nothing guarantees no endpoints and nothing ready, and
+reporting those as three faults describes one fault three times.
+
+### The one worth knowing about
+
+```
+✗ target-port   port 80 targets a containerPort NAMED "http", which no container in the 1 matched
+                pod(s) declares (declared names: web). A named targetPort that resolves to nothing
+                leaves the Service with no port to forward to, so connections are refused while
+                the Service, the pods and the endpoints all report healthy. The EndpointSlices
+                carry no port at all, which is the cluster confirming it.
+                fix: either add that name to the containerPort in the pod template, or change
+                     targetPort to the number the container listens on
+```
+
+A `targetPort` that names a port no container declares cannot be resolved by the endpoints
+controller, so the EndpointSlice is programmed with **no port**. The endpoint exists and is Ready.
+This is worse than a selector typo, where at least `kubectl get endpoints` shows `<none>`.
+
+Note the asymmetry the tool relies on, which is not cosmetic:
+
+- a **named** `targetPort` matching nothing is a **break** — the name genuinely cannot resolve
+- a **numeric** one is only a **warning** — `containerPort` is informational, and a process may
+  listen on a port it never declared, so calling this a fault would be a false positive on a
+  legitimate if untidy manifest
+
+### What it cannot see
+
+Several of the most common real causes of "the Service is up and traffic still fails" are outside
+the declared chain, so an intact result names them rather than reading as a clean bill of health:
+whether the process is **actually listening** (Kubernetes never verifies `containerPort`),
+NetworkPolicy, mesh sidecar mTLS and authorization policy, the ingress controller's own health and
+class, DNS from the caller, and the CNI dataplane. A Service setting
+`externalTrafficPolicy: Local` gets its own line, because it drops traffic on nodes with no local
+ready pod while every hop above stays green.
+
+Cost: **four list calls**, regardless of cluster size.
+
 ## Logs
 
 `get_workload_logs` and `argus logs` exist because fetching logs correctly during
@@ -640,9 +701,12 @@ you get it as part of a diagnosis rather than having to ask for it, which is the
 whole premise. It is recorded here because otherwise it simply disappeared from the
 plan.
 
-**v0.2** — `trace_service_path` (Ingress → Service → EndpointSlice → pod
-readiness → container port, reporting where the chain breaks) and an informer
-cache.
+**v0.2** is complete apart from the informer cache, which is deliberately unbuilt.
+It buys nothing for the CLI, which is short-lived by construction, and for `serve`
+it trades the call budget for a staleness window — a cache returning a 30-second-old
+pod state mid-rollout is worse than 13 live calls, because the answer is
+confidently wrong rather than slow. Current cost does not justify it: 13 calls for
+a diagnosis, 10 for a 130-workload triage, against a budget of 60.
 
 **v0.3** — GKE integrations (Cloud Logging fallback for evicted pods whose
 kubelet logs are gone, Autopilot constraints, Managed Prometheus for historical

@@ -6,10 +6,50 @@ All notable changes are noted here. The format loosely follows
 
 ## Unreleased
 
-argus is pre-release, and the v0.1 tool surface is complete: `diagnose_workload`,
-`get_workload_logs` and `cluster_triage` all work end to end.
+argus is pre-release. Six tools work end to end, and v0.2 is complete apart from the
+informer cache, which is deliberately unbuilt — see the note under Added.
 
 ### Added
+
+- **`trace_service_path`** and **`argus trace`** — the Service is up, the pods are
+  Ready, and traffic still does not arrive. Walks Ingress rule → selector → targetPort
+  → endpoint addresses → readiness and reports the **first** hop that gives out.
+
+  Only the first. Everything past a break is marked not-reachable rather than healthy,
+  because a selector matching nothing guarantees no endpoints and nothing ready, and
+  reporting those as three faults describes one fault three times.
+
+  The case it exists for is the silent one: a `targetPort` naming a containerPort no
+  container declares cannot be resolved by the endpoints controller, so the
+  EndpointSlice is programmed with **no port**. The endpoint exists and reports Ready,
+  the Deployment is 1/1, and `kubectl get svc,pods,ingress` shows nothing wrong — this
+  is worse than a selector typo, where at least `kubectl get endpoints` shows `<none>`.
+  Verified against live clusters on 1.25 and 1.35, both of which program `ports: null`.
+
+  The named/numeric asymmetry is load-bearing: a **named** targetPort that matches
+  nothing is a proven break, while a **numeric** one is only a warning, because
+  `containerPort` is informational and a process may listen on a port it never
+  declared. Reporting the numeric case as a fault would be a false positive on a
+  legitimate manifest.
+
+  A selector that matches nothing distinguishes a **label typo** from a workload that
+  is not deployed here, by naming pods whose label value looks like a misspelling of
+  what the selector wants. Four list calls, regardless of cluster size.
+
+  Because the declared chain being intact is a common and useful result, the report
+  names what it could not check — whether the process is really listening,
+  NetworkPolicy, mesh sidecar mTLS, ingress controller health and class, DNS, the CNI
+  dataplane — and gives `externalTrafficPolicy: Local` its own line when the Service
+  sets it, since it drops traffic on nodes with no local ready pod while every hop
+  above stays green.
+
+- **The informer cache is argued against rather than deferred.** It was on the v0.2
+  list to cut apiserver calls on repeat queries. It buys nothing for the CLI, which is
+  short-lived by construction, and for `serve` it trades the call budget for a
+  staleness window — a cache returning a 30-second-old pod state mid-rollout is worse
+  than 13 live calls, because the answer is confidently wrong rather than slow. The
+  measured cost does not justify it: 13 calls for a diagnosis, 10 for a 130-workload
+  triage, against a budget of 60. Recorded here rather than dropped silently.
 
 - **An end-to-end gate against live clusters** (`hack/e2e.sh`, plus a nightly CI
   matrix on Kubernetes v1.31 and v1.35). The unit suite replays snapshots captured
@@ -144,6 +184,16 @@ argus is pre-release, and the v0.1 tool surface is complete: `diagnose_workload`
 
 ### Fixed
 
+- **The service-path near-miss list over-matched on a shared label key.** Every pod in
+  a namespace carries `app`, so "carries one of those label keys" named six unrelated
+  workloads and pointed the reader at `bad-rollout` when the answer was `gapped`. Now
+  restricted to label values that are plausibly a misspelling of what the selector
+  wants. Same trap `relatedSelector` already documents, reached from the other
+  direction — and caught the same way, by running against a live cluster rather than
+  reasoning about it.
+- **That near-miss count reported the length of its own truncated list**, so it said
+  "6 pod(s)" while listing 14. A bounded list is fine; a bounded list whose count is
+  the bound is a wrong number presented as a measurement.
 - **The rollout detector missed stalled rollouts**, which is the shape a bad deploy
   usually has. It required the WORKLOAD to be degraded, so a deploy wedged behind
   `maxUnavailable` — new ReplicaSet unable to start, previous revision still serving
