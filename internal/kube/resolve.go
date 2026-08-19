@@ -35,6 +35,10 @@ var rolloutGVR = schema.GroupVersionResource{Group: "argoproj.io", Version: "v1a
 type AmbiguousError struct {
 	Query      string
 	Candidates []Ref
+	// Noun names what was being resolved. Empty means workloads, which is the common case and
+	// the wording USAGE documents; trace_service_path resolves Services through the same tiers
+	// and would otherwise report them as workloads.
+	Noun string
 }
 
 func (e *AmbiguousError) Error() string {
@@ -42,7 +46,11 @@ func (e *AmbiguousError) Error() string {
 	for i, c := range e.Candidates {
 		names[i] = c.String()
 	}
-	return fmt.Sprintf("%q matches %d workloads: %s", e.Query, len(e.Candidates), strings.Join(names, ", "))
+	noun := "workloads"
+	if e.Noun != "" {
+		noun = e.Noun
+	}
+	return fmt.Sprintf("%q matches %d %s: %s", e.Query, len(e.Candidates), noun, strings.Join(names, ", "))
 }
 
 // Resolve turns a fuzzy query into exactly one Ref.
