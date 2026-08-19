@@ -11,6 +11,18 @@ argus is pre-release, and the v0.1 tool surface is complete: `diagnose_workload`
 
 ### Added
 
+- **An end-to-end gate against live clusters** (`hack/e2e.sh`, plus a nightly CI
+  matrix on Kubernetes v1.31 and v1.35). The unit suite replays snapshots captured
+  on one cluster at one moment; it cannot notice upstream changing what it reports,
+  which is the thing most likely to break detectors that key on reason strings. The
+  gate applies `testdata/broken/` to a real cluster and asserts each detector still
+  fires on the workload it is meant to, and stays silent on the healthy control.
+  Behaviour, not bytes — a byte-diff would be red the moment CI ran a different
+  version from the one the fixtures came from.
+- **`TestPickContainer`** — unit coverage for the log-selection judgement (failing
+  container over sidecar, previous instance on a crashloop, explicit overrides),
+  which the live gate cannot assert without racing the pod.
+
 - **`explain_pending`** and **`argus pending`** — why a workload's pods will not
   schedule. The scheduler reports a count ("0/1 nodes are available: 1 Insufficient
   memory"); this reports the arithmetic, per node: what the pod asked for, what the
@@ -131,6 +143,19 @@ argus is pre-release, and the v0.1 tool surface is complete: `diagnose_workload`
   rollout history never reads as an unreachable apiserver.
 
 ### Fixed
+
+- **The rollout detector missed stalled rollouts**, which is the shape a bad deploy
+  usually has. It required the WORKLOAD to be degraded, so a deploy wedged behind
+  `maxUnavailable` — new ReplicaSet unable to start, previous revision still serving
+  every request, 2/2 ready at the Deployment — was reported as nothing wrong. A safe
+  rollout strategy is *designed* to keep the workload up while the deploy fails, so
+  gating on workload health suppressed the normal case. The condition is now that the
+  current ReplicaSet has replicas it should be running and fewer are ready; requiring
+  `Desired > 0` is what keeps the old rollback false positive dead. Severity now
+  distinguishes the two: a wedged deploy that still serves everything grades warning,
+  because calling it the same as an outage is how a severity scale stops meaning
+  anything. Found by the new e2e gate on k8s 1.35 — every fixture, captured on 1.25,
+  had agreed with the bug.
 
 Six defects caught by the test suite and the fixtures before any of this ran in anger:
 

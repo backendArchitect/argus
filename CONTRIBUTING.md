@@ -42,6 +42,41 @@ test, the logic probably belongs on the pure side of the boundary.
 Keep the suite green and fast. A change to non-trivial logic without a test
 won't be merged.
 
+### The end-to-end gate
+
+```sh
+kind create cluster --name argus-e2e --image kindest/node:v1.35.5
+./hack/e2e.sh kind-argus-e2e
+```
+
+The unit suite replays snapshots captured on one cluster at one moment. That is
+the right primary gate, but it cannot notice the thing most likely to break these
+detectors: **upstream changing what it reports.** They key on reason strings and
+status fields, and when a Kubernetes release changes one, every committed fixture
+keeps passing while the tool quietly stops working on the version people run.
+
+So `hack/e2e.sh` applies `testdata/broken/` to a live cluster and asserts each
+detector still fires on the workload it is meant to, and stays silent on the
+healthy control. CI runs it nightly against two Kubernetes versions.
+
+It asserts **behaviour, not bytes**. A byte-diff against the committed snapshots
+would be red the moment CI runs a different version from the one they were
+captured on, and the thing worth protecting is not the YAML.
+
+Two rules if you extend it:
+
+- **Wait for the precondition the detector needs, never for a status string.** An
+  earlier version grepped for `CrashLoopBackOff|Error`, which on 1.35 matched
+  `RunContainerError` instantly — at restart count 0 — while the crash-loop
+  detector deliberately requires two restarts. The gate asserted before its own
+  precondition held and reported a working detector as broken. A test that races
+  the thing it measures is worse than no test: it teaches you to distrust real
+  failures.
+- **Assert only what is invariant on a live cluster.** Which log instance gets
+  read depends on whether the container happens to be in backoff at that instant,
+  so that belongs in a unit test (`TestPickContainer`); the gate checks that
+  credentials are redacted and repeats collapsed, which are always true.
+
 ## Lint
 
 ```sh

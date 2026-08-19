@@ -597,6 +597,26 @@ Each fixture asserts that its detector fires **and that no others do**. The
 negative half is the important half: false positives are what destroy trust in a
 diagnostic tool at 3am.
 
+### And a live gate, because fixtures cannot catch upstream drift
+
+```sh
+./hack/e2e.sh kind-argus-e2e
+```
+
+The detectors key on reason strings and status fields. When a Kubernetes release
+changes one, every committed fixture keeps passing while the tool stops working on
+the version people actually run. So `hack/e2e.sh` applies the broken workloads to
+a real cluster and asserts the detectors still fire; CI runs it nightly against
+**v1.31 and v1.35**.
+
+It has already earned itself twice. Running against 1.35 showed that a missing
+entrypoint reports `waiting.reason=RunContainerError` there and
+`CrashLoopBackOff` on 1.25 — harmless, because the detector keys on the state and
+not that string, which is exactly why it keys on the state. And it found a real
+gap: the rollout detector required the *workload* to be degraded, so it said
+nothing about a deploy wedged behind `maxUnavailable` with the previous revision
+still serving every request — the shape a bad rollout usually has.
+
 Notable guard tests, if one fails and you're wondering why it exists:
 
 | Test | Guards |
@@ -620,9 +640,9 @@ you get it as part of a diagnosis rather than having to ask for it, which is the
 whole premise. It is recorded here because otherwise it simply disappeared from the
 plan.
 
-**v0.2** — `explain_pending` (per-node fit arithmetic: which nodes were excluded
-by taints, by affinity, by insufficient CPU/memory with the actual numbers),
-`trace_service_path`, an informer cache, and kind-based CI.
+**v0.2** — `trace_service_path` (Ingress → Service → EndpointSlice → pod
+readiness → container port, reporting where the chain breaks) and an informer
+cache.
 
 **v0.3** — GKE integrations (Cloud Logging fallback for evicted pods whose
 kubelet logs are gone, Autopilot constraints, Managed Prometheus for historical

@@ -212,7 +212,9 @@ claude mcp add argus -- argus serve
   readiness misconfigured · endpoint gap (selector typo vs readiness failure) · node-caused,
   which *widens scope* and suppresses the per-workload symptoms it explains
 - **The broken-fixture suite** — each fixture asserts its detector fires **and no others do**,
-  with a healthy control that must produce nothing
+  with a healthy control that must produce nothing — plus a nightly end-to-end gate that runs the
+  detectors against live clusters on two Kubernetes versions, because fixtures cannot catch
+  upstream changing what it reports
 - MCP server over stdio, with schemas derived from Go types
 - Fuzzy workload resolution (Deployment / StatefulSet / DaemonSet / Argo Rollout), returning
   candidates on ambiguity rather than guessing
@@ -223,7 +225,7 @@ claude mcp add argus -- argus serve
 
 **v0.1 is complete.**
 
-**v0.2** — `trace_service_path`, informer cache, kind-based CI.
+**v0.2** — `trace_service_path`, informer cache.
 **v0.3** — GKE integrations (Cloud Logging fallback for dead pods, Autopilot, Managed Prometheus),
 `compare_environments`, `check_reachability`, in-cluster deployment with Workload Identity.
 
