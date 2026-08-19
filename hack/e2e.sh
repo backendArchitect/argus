@@ -19,6 +19,10 @@ K="kubectl --context $CONTEXT"
 ARGUS="$ROOT/argus"
 
 fail=0
+# flat collapses the renderer's line wrapping, so an assertion can match a phrase without
+# depending on where the column limit happens to fall. Without this, "looks like a misspelling"
+# failed to match output that plainly contained it, split across two lines.
+flat() { tr '\n' ' ' | tr -s ' '; }
 step() { printf '\n\033[1m── %s\033[0m\n' "$1"; }
 ok()   { printf '  \033[32m✓\033[0m %s\n' "$1"; }
 bad()  { printf '  \033[31m✗\033[0m %s\n' "$1"; fail=1; }
@@ -33,7 +37,7 @@ $K version -o json 2>/dev/null | grep -oE '"gitVersion": "v[^"]+"' | tail -1 || 
 step "applying the broken workloads"
 $K apply -f "$ROOT/testdata/broken/00-namespace.yaml" >/dev/null
 for f in oom-limit-too-low image-pull-typo readiness-too-fast endpoint-gap healthy \
-         noisy-crashloop bad-entrypoint unschedulable; do
+         noisy-crashloop bad-entrypoint unschedulable port-name-typo; do
   $K apply -f "$ROOT/testdata/broken/$f.yaml" >/dev/null
 done
 # The rollout fixture needs a healthy revision in history first: the detector's claim is
@@ -129,6 +133,59 @@ if grep -q 'nodeSelector wants' <<<"$out"; then
   ok "wrong-selector → nodeSelector mismatch, naming the label"
 else
   bad "wrong-selector → expected a nodeSelector reason:"; sed 's/^/      /' <<<"$out" | head -10
+fi
+
+step "trace_service_path finds the hop that breaks"
+# The headline case, and the one this tool exists for: every object reports healthy and the
+# EndpointSlice is programmed with no port. Asserted here rather than only in a unit test
+# because the claim is about what the ENDPOINTS CONTROLLER does with an unresolvable named
+# targetPort — that is upstream behaviour, and a table test can only assert our reading of it.
+out="$("$ARGUS" trace port-typo -n "$NS" --context "$CONTEXT" 2>&1)"
+flatout="$(flat <<<"$out")"
+if grep -q 'breaks at "target-port"' <<<"$flatout" && grep -q 'declared names: web' <<<"$flatout"; then
+  ok "port-typo → target-port, naming the port the container actually declares"
+else
+  bad "port-typo → expected a target-port break:"; sed 's/^/      /' <<<"$out" | head -12
+fi
+# The cluster's own confirmation. If a future Kubernetes starts programming a port anyway, this
+# is the line that notices, and the detector's reasoning would need revisiting.
+if grep -q 'EndpointSlices carry no port at all' <<<"$flatout"; then
+  ok "the EndpointSlice carries no port, which is upstream agreeing"
+else
+  bad "expected the dataplane confirmation; the endpoints controller may have changed behaviour"
+fi
+
+# A selector typo must be reported as a typo, naming only the mislabelled pod. An earlier version
+# matched on a shared label KEY and named six unrelated workloads, because every pod carries `app`.
+out="$("$ARGUS" trace gapped -n "$NS" --context "$CONTEXT" 2>&1)"
+flatout="$(flat <<<"$out")"
+if grep -q 'breaks at "selector"' <<<"$flatout" && grep -q 'looks like a misspelling' <<<"$flatout"; then
+  ok "gapped → selector typo, distinguished from a missing workload"
+else
+  bad "gapped → expected a selector break naming the near miss:"; sed 's/^/      /' <<<"$out" | head -12
+fi
+if grep -qE 'misspelling of it: gapped-[a-z0-9]+' <<<"$flatout" \
+   && ! grep -qE 'misspelling of it:[^.]*(bad-rollout|oom-victim|bad-entrypoint)' <<<"$flatout"; then
+  ok "the near miss names the mislabelled pod and nothing else"
+else
+  bad "near-miss list over-matched — it should name only plausibly-mistyped values:"
+  sed 's/^/      /' <<<"$out" | head -12
+fi
+
+# The healthy control must not produce a break. This is the assertion that keeps the tool
+# trustworthy: a trace that finds a fault in a working Service is worse than no trace.
+out="$("$ARGUS" trace healthy -n "$NS" --context "$CONTEXT" 2>&1)"
+flatout="$(flat <<<"$out")"
+if ! grep -q 'breaks at' <<<"$flatout"; then
+  ok "healthy → no break found"
+else
+  bad "healthy Service reported a break:"; sed 's/^/      /' <<<"$out" | head -12
+fi
+# And an intact chain has to point somewhere, or it is a dead end.
+if grep -q 'NetworkPolicy' <<<"$flatout"; then
+  ok "an intact chain still names what it could not check"
+else
+  bad "intact chain named no gaps, which makes it a dead end"
 fi
 
 step "cluster_triage groups by controller and excludes the healthy one"

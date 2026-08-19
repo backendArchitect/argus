@@ -1,0 +1,65 @@
+# The failure trace_service_path exists for: a Service whose targetPort names a containerPort
+# that does not exist.
+#
+# Every object reports healthy. The Deployment is 1/1, the pod is Running and Ready, the Service
+# has an endpoint, and `kubectl get svc,pods,ingress` shows nothing at all wrong. But the
+# endpoints controller cannot resolve the name "http" against a container that declares its port
+# as "web", so the EndpointSlice is programmed with NO PORT, and every connection is refused.
+#
+# This is worse than the endpoint-gap case, where at least `kubectl get endpoints` shows <none>.
+# Here the endpoint exists and looks right.
+#
+# The Ingress is here so the trace has a real first hop, and it deliberately names the Service
+# port by name — the correct thing to do, and the thing that makes the failure one hop deeper
+# than it looks.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: port-typo
+  namespace: argus-broken
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: port-typo}
+  template:
+    metadata:
+      labels: {app: port-typo}
+    spec:
+      containers:
+        - name: app
+          image: registry.k8s.io/pause:3.9
+          ports:
+            - name: web          # <-- the container calls it "web"
+              containerPort: 8080
+          resources:
+            requests: {memory: 8Mi, cpu: 10m}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: port-typo
+  namespace: argus-broken
+spec:
+  selector: {app: port-typo}
+  ports:
+    - name: http
+      port: 80
+      targetPort: http          # <-- and the Service asks for "http". No such port exists.
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: port-typo
+  namespace: argus-broken
+spec:
+  rules:
+    - host: port-typo.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: port-typo
+                port:
+                  name: http     # correct: the Service does declare a port named "http"
