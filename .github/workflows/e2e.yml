@@ -1,0 +1,75 @@
+name: e2e
+
+# Runs the detectors against a real Kubernetes cluster, not a fixture.
+#
+# The unit suite replays snapshots captured on one cluster at one moment. That is fast
+# and it is the right primary gate, but it cannot notice the thing most likely to break
+# these detectors: upstream changing what it reports. They key on reason strings and
+# status fields — "StartError" meaning the container never started, exit 137 accompanying
+# OOMKilled — and when a Kubernetes release changes one of those, every committed fixture
+# keeps passing while the tool quietly stops working on the version people run.
+#
+# So this applies testdata/broken/ to live clusters across a span of versions and asserts
+# each detector still fires on the workload it is meant to, and stays silent on the
+# healthy control.
+on:
+  schedule:
+    - cron: "17 4 * * *"      # nightly: upstream drift is a slow leak, not a per-PR risk
+  workflow_dispatch:
+  pull_request:
+    # Only for changes that could plausibly break the cluster-facing behaviour. Running
+    # ~8 minutes of cluster setup on a README edit teaches nobody anything.
+    paths:
+      - "internal/detect/**"
+      - "internal/kube/**"
+      - "internal/project/**"
+      - "testdata/broken/**"
+      - "hack/e2e.sh"
+      - ".github/workflows/e2e.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false        # one version failing is a data point, not a reason to stop
+      matrix:
+        include:
+          # The oldest version still worth supporting, and one matching the production
+          # cluster this was built against. A detector that works on both is very unlikely
+          # to be relying on version-specific wording.
+          - k8s: v1.31.14
+          - k8s: v1.35.5
+    name: k8s ${{ matrix.k8s }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: {go-version: '1.26', cache: true}
+
+      - uses: helm/kind-action@v1
+        with:
+          cluster_name: argus-e2e
+          node_image: kindest/node:${{ matrix.k8s }}
+
+      - name: Cluster is up
+        run: kubectl --context kind-argus-e2e get nodes -o wide
+
+      - name: Detectors must fire correctly against a live cluster
+        run: ./hack/e2e.sh kind-argus-e2e
+
+      # When something does drift, the pod states and the raw diagnosis are what identify
+      # which field changed. Collected on failure so the log carries the evidence rather
+      # than just the verdict.
+      - name: On failure, dump what the cluster actually reported
+        if: failure()
+        run: |
+          kubectl --context kind-argus-e2e -n argus-broken get pods -o wide || true
+          for w in oom-victim bad-entrypoint noisy-crashloop pull-typo; do
+            echo "── $w"
+            kubectl --context kind-argus-e2e -n argus-broken get pods -l "app=$w" \
+              -o jsonpath='{range .items[*]}{.status.containerStatuses[*].lastState}{"\n"}{.status.containerStatuses[*].state}{"\n"}{end}' || true
+            ./argus diagnose "$w" -n argus-broken --context kind-argus-e2e || true
+          done
