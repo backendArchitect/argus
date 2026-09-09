@@ -39,6 +39,22 @@ var fixtures = map[string][]string{
 	// A ConfigMap that was never applied. Produced ZERO findings before its detector existed:
 	// the container never terminates, so nothing else in the registry can see it.
 	"missing-configmap": {"config.missing-configmap"},
+	// The same object missing, mounted as a volume instead of read as env. Reported under the
+	// same ID because the fix is identical; found down a different path, because the kubelet
+	// leaves the container on a bare ContainerCreating with an empty message and puts the whole
+	// explanation in an event.
+	"mount-missing-configmap": {"config.missing-configmap"},
+	// A reference the kubelet cannot parse. Never reaches a registry, so none of the four pull
+	// causes apply and it must not be reported as one.
+	"invalid-image-name": {"image.invalid-reference"},
+	// The first two fixtures to exercise the HPA and PDB gather path at all — both were being
+	// fetched and projected on every diagnosis and read by no detector.
+	"hpa-cannot-scale": {"hpa.cannot-scale"},
+	"pdb-blocks-drain": {"pdb.blocks-disruption"},
+	// The second control, and the one that makes the PDB detector worth trusting: same shape as
+	// pdb-blocks-drain but correctly sized, so it must stay silent. `healthy` cannot prove this —
+	// it has no PDB, so it only ever proves the detector does not fire on absence.
+	"pdb-has-headroom": {},
 	// Regressions, each distilled from a real false positive found by running against a live
 	// cluster. All three assert SILENCE, which is the hardest property to keep true as detectors
 	// grow — and the one that decides whether anyone trusts the tool at 3am.

@@ -27,6 +27,11 @@ targets=(
   "noisy-crashloop:crashloop-nonzero"
   "bad-entrypoint:crashloop-wont-start"
   "missing-config:missing-configmap"
+  "mount-missing-config:mount-missing-configmap"
+  "invalid-image:invalid-image-name"
+  "hpa-stuck:hpa-cannot-scale"
+  "pdb-pinned:pdb-blocks-drain"
+  "pdb-roomy:pdb-has-headroom"
   "healthy:healthy"
 )
 

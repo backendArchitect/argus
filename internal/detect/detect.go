@@ -34,6 +34,11 @@ var registry = []Detector{
 	{ID: "config.missing-reference", Detect: detectConfigError},
 	{ID: "endpoints.no-ready-backends", Detect: detectEndpointGap},
 	{ID: "probe.readiness-misconfigured", Detect: detectReadinessMisconfigured},
+	// Last in tie-break order: both are warnings about capacity and maintenance rather than about
+	// a workload that is down, so on the rare snapshot where they tie with something else, the
+	// something else is what the reader wants first.
+	{ID: "hpa.cannot-scale", Detect: detectHPACannotScale},
+	{ID: "pdb.blocks-disruption", Detect: detectPDBBlocksDrain},
 }
 
 // IDs returns the registered detector IDs, for tests and diagnostics.

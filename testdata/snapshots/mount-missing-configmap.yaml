@@ -1,0 +1,111 @@
+degraded:
+- 'metrics: the server could not find the requested resource (get pods.metrics.k8s.io)'
+events:
+- count: 8
+  first_seen_seconds_ago: 77
+  last_seen_seconds_ago: 14
+  message: 'MountVolume.SetUp failed for volume "config" : configmap "absent-config"
+    not found'
+  object_count: 1
+  object_kind: Pod
+  object_name: mount-missing-config-7b48d54789-wbcl4
+  reason: FailedMount
+  type: Warning
+- count: 1
+  first_seen_seconds_ago: 77
+  last_seen_seconds_ago: 77
+  message: Successfully assigned argus-broken/mount-missing-config-<pod> to argus-test-control-plane
+  object_count: 1
+  object_kind: Pod
+  object_name: mount-missing-config-7b48d54789-wbcl4
+  reason: Scheduled
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 78
+  last_seen_seconds_ago: 78
+  message: Scaled up replica set mount-missing-config-<hash> to 1
+  object_count: 1
+  object_kind: Deployment
+  object_name: mount-missing-config
+  reason: ScalingReplicaSet
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 78
+  last_seen_seconds_ago: 78
+  message: 'Created pod: mount-missing-config-<pod>'
+  object_count: 1
+  object_kind: ReplicaSet
+  object_name: mount-missing-config-7b48d54789
+  reason: SuccessfulCreate
+  type: Normal
+namespace: argus-broken
+nodes:
+- alloc_cpu: "16"
+  alloc_mem: 28358252Ki
+  name: argus-test-control-plane
+  ready: true
+pods:
+- containers:
+  - image: busybox:1.36
+    name: app
+    ready: false
+    request_cpu: 10m
+    request_mem: 16Mi
+    restart_count: 0
+    started: false
+    state:
+      reason: ContainerCreating
+      status: waiting
+  created_seconds_ago: 78
+  labels:
+    app: mount-missing-config
+    pod-template-hash: 7b48d54789
+  name: mount-missing-config-7b48d54789-wbcl4
+  node: argus-test-control-plane
+  owner_kind: ReplicaSet
+  owner_name: mount-missing-config-7b48d54789
+  phase: Pending
+  ready: false
+replicasets:
+- available: 0
+  created_seconds_ago: 78
+  current: true
+  desired: 1
+  name: mount-missing-config-7b48d54789
+  ready: 0
+  revision: "1"
+  template:
+  - command:
+    - sleep
+    - "3600"
+    image: busybox:1.36
+    mounts:
+    - config:/etc/app
+    name: app
+    request_cpu: 10m
+    request_mem: 16Mi
+scope: workload/argus-broken/mount-missing-config
+workload:
+  available: 0
+  conditions:
+  - last_change_seconds_ago: 78
+    message: Deployment does not have minimum availability.
+    reason: MinimumReplicasUnavailable
+    status: "False"
+    type: Available
+  - last_change_seconds_ago: 78
+    message: ReplicaSet "mount-missing-config-7b48d54789" is progressing.
+    reason: ReplicaSetUpdated
+    status: "True"
+    type: Progressing
+  created_seconds_ago: 78
+  desired: 1
+  generation: 1
+  kind: Deployment
+  name: mount-missing-config
+  namespace: argus-broken
+  observed_generation: 1
+  ready: 0
+  selector:
+    app: mount-missing-config
+  updated: 1

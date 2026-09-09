@@ -406,14 +406,14 @@ findings   1 (1 critical)
     <div class="stat"><div class="n" data-to="326">0</div><div class="l">tokens per pod</div><div class="was">was 946 · budget 400</div></div>
     <div class="stat"><div class="n" data-to="3300" data-fmt="k">0</div><div class="l">tokens per snapshot</div><div class="was">was ~10,400</div></div>
     <div class="stat"><div class="n" data-to="13">0</div><div class="l">apiserver calls</div><div class="was">hard cap 60</div></div>
-    <div class="stat"><div class="n" data-to="9" data-fmt="s">0</div><div class="l">test suite, no cluster</div><div class="was">55 tests, detectors are pure</div></div>
+    <div class="stat"><div class="n" data-to="9" data-fmt="s">0</div><div class="l">test suite, no cluster</div><div class="was">85 tests, detectors are pure</div></div>
   </div>
 </section>
 
 <section id="detectors" class="wrap">
   <div class="rv">
     <p class="eyebrow">The correlation engine</p>
-    <h2>Seven detectors, nineteen named causes</h2>
+    <h2>Ten detectors, twenty-six named causes</h2>
     <p class="lede">
       Each is a pure function over a snapshot, so each is replayable against a committed fixture.
       Every fixture asserts its detector fires <em>and that no others do</em> — the negative half is
@@ -425,9 +425,12 @@ findings   1 (1 critical)
     <div class="card"><h3>crashloop.*</h3><p>Reads the <em>exit code</em> instead of restating CrashLoopBackOff. A broken entrypoint, a container that exits zero and should be a Job, SIGSEGV, an abort, a liveness-probe SIGTERM — each gets its own remedy.</p><span class="sig">lastState reason + exit code + the runtime's own error</span></div>
     <div class="card"><h3>oomkill.limit-too-low</h3><p>The kernel killed it for exceeding its own limit — with a suggested new limit when usage data supports one.</p><span class="sig">lastState.reason=OOMKilled + limit + peak usage</span></div>
     <div class="card"><h3>rollout.bad-template</h3><p>The new revision is failing and the previous one was healthy. Reports the fields that changed between them.</p><span class="sig">RS health pair + semantic template diff</span></div>
-    <div class="card"><h3>image.pull-*</h3><p>Distinguishes a typo'd tag from a missing pull secret, refused credentials, and a registry rate limit — four causes, one symptom.</p><span class="sig">waiting.reason + the runtime's own error text</span></div>
+    <div class="card"><h3>image.*</h3><p>Distinguishes a typo'd tag from a missing pull secret, refused credentials, and a registry rate limit — four causes, one symptom. A fifth is not a pull at all: an unparseable reference is rejected before any registry is contacted, so it sends you to the manifest rather than the registry.</p><span class="sig">waiting.reason + the runtime's own error text</span></div>
     <div class="card"><h3>endpoints.*</h3><p>Tells a selector typo (matches nothing) apart from a readiness failure (matches pods, none ready). Invisible to <code>kubectl get</code>.</p><span class="sig">selector match count vs endpoint readiness</span></div>
     <div class="card"><h3>probe.readiness-misconfigured</h3><p>Running, alive, not crashing — and still never ready. Compares the probe's real deadline against observed uptime.</p><span class="sig">initialDelay + period×failureThreshold</span></div>
+    <div class="card"><h3>config.missing-*</h3><p>A ConfigMap or Secret the pod references does not exist — or exists without the key it asks for, which <code>kubectl get</code> shows as perfectly healthy. Carries <em>no</em> log hint, deliberately: the container was never created, so the stream is empty and always will be.</p><span class="sig">CreateContainerConfigError, or a FailedMount event</span></div>
+    <div class="card"><h3>hpa.cannot-scale</h3><p>The autoscaler that is not autoscaling. Every object reads healthy — the HPA exists, the Deployment is Ready, the replica count looks deliberate — but no replica count is being computed, so the next traffic spike is an outage with no cause in any log.</p><span class="sig">HPA ScalingActive=False + its own reason</span></div>
+    <div class="card"><h3>pdb.blocks-disruption</h3><p>The cause of the incident that does not look like one: a drain or upgrade that hangs for hours. Gated on the workload being <em>healthy</em> — every broken one also allows zero disruptions, and that is the budget working correctly.</p><span class="sig">disruptionsAllowed vs currentHealthy</span></div>
     <div class="card"><h3>node.unhealthy-host</h3><p><strong>Widens scope.</strong> If the node is the cause, it says so and suppresses the per-workload symptoms rather than reporting one cause three times.</p><span class="sig">node conditions + affected pod set</span></div>
   </div>
 </section>
@@ -495,7 +498,7 @@ findings   1 (1 critical)
     <li><span class="pill pill-now">shipping</span><span><strong>diagnose_workload</strong> — the flagship: a fuzzy workload name in, ranked causes out, every one citing the evidence it used</span></li>
     <li><span class="pill pill-now">shipping</span><span><strong>cluster_triage</strong> — what is broken right now, grouped by controller. 130 workloads in 10 apiserver calls, constant in cluster size, because it inverts the data flow instead of looping the diagnosis</span></li>
     <li><span class="pill pill-now">shipping</span><span><strong>get_workload_logs</strong> — picks the failing container over sidecars, reads the <code>previous</code> instance on a crashloop, collapses repeated lines, redacts credentials, budgets by tokens. Took a real crashloop from 206 lines to 7</span></li>
-    <li><span class="pill pill-now">shipping</span><span>Seven detectors over 19 named causes · the broken-fixture suite, plus a nightly gate that runs them against live clusters on two Kubernetes versions · projection &amp; event dedup · fuzzy resolution across Deployment/StatefulSet/DaemonSet/Rollout · <code>capture</code> as the fixture generator · read-only enforced as a build gate · checksum-verified self-update</span></li>
+    <li><span class="pill pill-now">shipping</span><span>Ten detectors over 26 named causes · the broken-fixture suite, plus a nightly gate that runs them against live clusters on two Kubernetes versions · projection &amp; event dedup · fuzzy resolution across Deployment/StatefulSet/DaemonSet/Rollout · <code>capture</code> as the fixture generator · read-only enforced as a build gate · checksum-verified self-update</span></li>
     <li><span class="pill pill-now">shipping</span><span><strong>explain_pending</strong> — why a pod will not schedule, with the arithmetic per node: what it asked for, what is free, and how much other pods already reserve. Names the constraints it does <em>not</em> evaluate</span></li>
     <li><span class="pill pill-now">shipping</span><span><strong>trace_service_path</strong> — the Service is up, the pods are Ready, and traffic still 503s. Walks Ingress&nbsp;→&nbsp;selector&nbsp;→&nbsp;targetPort&nbsp;→&nbsp;endpoints&nbsp;→&nbsp;readiness and names the <em>first</em> hop that breaks. Catches the silent one: a <code>targetPort</code> naming a port no container declares leaves the EndpointSlice with no port at all, so every connection is refused while <code>kubectl get</code> shows a healthy system</span></li>
     <li><span class="pill pill-later">not building</span><span><strong>informer cache</strong> — argued against rather than deferred. It buys nothing for the CLI, and for the server it trades the call budget for a staleness window: a 30-second-old pod state mid-rollout is worse than 13 live calls, because the answer is confidently wrong rather than slow</span></li>

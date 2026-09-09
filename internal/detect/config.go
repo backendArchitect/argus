@@ -32,6 +32,19 @@ type configCause struct {
 var (
 	configMissingObject = regexp.MustCompile(`(?i)(configmap|secret) "([^"]+)" not found`)
 	configMissingKey    = regexp.MustCompile(`(?i)couldn't find key (\S+) in (configmap|secret) (\S+)`)
+
+	// The mount path's wording, from a FailedMount event rather than container status. Also
+	// verified verbatim on both 1.25.3 and 1.35.5:
+	//
+	//	MountVolume.SetUp failed for volume "config" : configmap "absent-config" not found
+	//	MountVolume.SetUp failed for volume "creds" : secret "absent-creds" not found
+	//
+	// Note this is matched against an event message, which the projection has run through
+	// Normalize to collapse repeats. Normalize rewrites hex-looking runs to "<hash>", so an
+	// object whose name happens to be 7+ hex characters can reach the detector partly rewritten.
+	// The message STRUCTURE survives, which is what classification needs; the evidence line then
+	// quotes the normalized text rather than inventing a name it did not see.
+	configMountFailed = regexp.MustCompile(`(?i)MountVolume\.SetUp failed for volume "([^"]+)"\s*:\s*(configmap|secret) "([^"]+)" not found`)
 )
 
 // detectConfigError finds containers the kubelet cannot even construct, because a ConfigMap or
@@ -47,11 +60,27 @@ var (
 // Before this detector existed a workload in this state produced zero findings — argus reported
 // nothing wrong about a Deployment that could never start a single pod.
 //
-// Deliberately NOT covered: the same missing object mounted as a VOLUME rather than read as env.
-// That fails in the kubelet's mount path, reporting reason=ContainerCreating with a FailedMount
-// event, and needs its own event-gated detector — ContainerCreating is the normal state for the
-// first seconds of every pod's life, so it cannot be keyed on the way this reason can.
+// Two paths reach the same fault, because the kubelet fails in a different place depending on how
+// the object is consumed. Reading it as env fails when the container config is assembled
+// (`CreateContainerConfigError`, message on the container). Mounting it as a volume fails earlier,
+// in the mount path, and leaves the container on the wholly uninformative `ContainerCreating` with
+// an EMPTY message — the entire diagnosis is in a `FailedMount` event. Both are reported under the
+// same finding ID, because the object to go create and the way to create it are identical; only
+// the line of the manifest to look at differs, which the detail says.
 func detectConfigError(s *model.Snapshot) []model.Finding {
+	// Env first: it is the more precise signal, read straight off the container rather than
+	// correlated through an event, so when both are somehow present it should be the one reported.
+	if f := configFromEnv(s); f != nil {
+		return []model.Finding{*f}
+	}
+	if f := configFromMount(s); f != nil {
+		return []model.Finding{*f}
+	}
+	return nil
+}
+
+// configFromEnv handles the env path: the kubelet states the problem on the container itself.
+func configFromEnv(s *model.Snapshot) *model.Finding {
 	for i := range s.Pods {
 		pod := &s.Pods[i]
 		for j := range pod.Containers {
@@ -82,28 +111,140 @@ func detectConfigError(s *model.Snapshot) []model.Finding {
 					"container %q takes its environment from %s", c.Name, object))
 			}
 
-			detail := cause.detail
-			if object != "" {
-				detail = fmt.Sprintf("%s The reference that does not resolve is %s, in namespace %s.",
-					detail, object, s.Namespace)
-			}
-
-			return []model.Finding{{
-				ID:       cause.id,
-				Severity: model.Critical,
-				// No confidence() call, and deliberately: this detector reads the kubelet's own
-				// verbatim statement of what is missing out of pod status, which is present
-				// whenever pods are. It infers nothing from absence, so it has nothing to dock.
-				Confidence: cause.confidence(),
-				Scope:      workloadScope(s),
-				Title:      cause.title,
-				Detail: fmt.Sprintf("%s Container %q of %s cannot be created, so the pod will "+
-					"never start and there are no logs to read.", detail, c.Name, pod.Name),
-				Evidence: ev,
-			}}
+			f := configFinding(s, cause, object, "read into the container's environment", ev)
+			f.Detail = fmt.Sprintf("%s Container %q of %s cannot be created, so the pod will "+
+				"never start and there are no logs to read.", f.Detail, c.Name, pod.Name)
+			return &f
 		}
 	}
 	return nil
+}
+
+// configFromMount handles the volume path, and is gated on the event rather than on the container
+// state, deliberately.
+//
+// `ContainerCreating` is the normal state for the first seconds of every pod's life, so keying on
+// it would fire on every healthy deploy. A `FailedMount` event naming a missing object only exists
+// when a mount actually failed, which makes the event the signal and the state merely corroboration.
+// The pod is additionally required to be un-ready, because these events survive up to an hour and a
+// pod that has since mounted and gone ready has had the problem fixed already.
+func configFromMount(s *model.Snapshot) *model.Finding {
+	for i := range s.Events {
+		g := &s.Events[i]
+		if g.Type != "Warning" || g.Reason != "FailedMount" {
+			continue
+		}
+		m := configMountFailed.FindStringSubmatch(g.Message)
+		if m == nil {
+			continue
+		}
+		volume := m[1]
+		kind, display := configKind(m[2])
+		object := kind + "/" + m[3]
+
+		// Only report against a pod that is still not ready: these events survive about an hour,
+		// and a pod that has since mounted and gone ready has had the problem fixed.
+		//
+		// Not simply the pod the event names, because event grouping deliberately collapses
+		// across pods and keeps only the LEXICALLY FIRST name as its example. On a multi-replica
+		// workload mid-recovery that example can be the one pod that came back while others are
+		// still stuck, and keying on it alone would go silent on a live fault. So: prefer the
+		// named pod, fall back to any pod of the workload that is still un-ready.
+		pod := unreadyPod(s, g.ObjectName)
+		if pod == nil {
+			continue
+		}
+
+		cause := configCause{
+			id:    "config.missing-" + kind,
+			title: "The " + display + " the container mounts does not exist",
+			detail: "The pod mounts a " + display + " that is not present in its namespace, so " +
+				"the kubelet cannot set the volume up and the container is never created. This " +
+				"one hides better than the environment-variable form: the container sits on " +
+				"`ContainerCreating` with an empty status message, and the only statement of " +
+				"the cause is a FailedMount event that ages out after about an hour.",
+		}
+		if kind == "secret" {
+			cause.detail += " Check whether the Secret is meant to be created by a controller " +
+				"rather than by this manifest — sealed-secrets, external-secrets and the cloud " +
+				"CSI drivers all work this way."
+		}
+
+		ev := []model.Evidence{
+			evidence("event", g.ObjectKind+"/"+g.ObjectName,
+				"%s x%d across %d pod(s): %s", g.Reason, g.Count, g.ObjectCount, g.Message),
+			evidence("pod.status", "pod/"+pod.Name,
+				"pod is %s and not ready, %ds after being created", pod.Phase, pod.CreatedSecondsAgo),
+		}
+		if ref, mount := mountRef(s, volume); ref != "" {
+			ev = append(ev, evidence("replicaset.template", ref,
+				"volume %q is mounted at %s", volume, mount))
+		}
+
+		f := configFinding(s, cause, object, "mounted as a volume", ev)
+		f.Detail = fmt.Sprintf("%s Volume %q of %s cannot be set up, so the pod will never start "+
+			"and there are no logs to read.", f.Detail, volume, pod.Name)
+		return &f
+	}
+	return nil
+}
+
+// configFinding assembles what both paths agree on, so the severity, confidence rule and the
+// "which object, which namespace" sentence cannot drift between them.
+func configFinding(s *model.Snapshot, cause configCause, object, via string, ev []model.Evidence) model.Finding {
+	detail := cause.detail
+	if object != "" {
+		detail = fmt.Sprintf("%s The reference that does not resolve is %s, in namespace %s, %s.",
+			detail, object, s.Namespace, via)
+	}
+	return model.Finding{
+		ID:       cause.id,
+		Severity: model.Critical,
+		// No confidence() call, and deliberately: this detector reads the kubelet's own verbatim
+		// statement of what is missing, which is present whenever the pods or events it came from
+		// are. It infers nothing from absence, so it has nothing to dock.
+		Confidence: cause.confidence(),
+		Scope:      workloadScope(s),
+		Title:      cause.title,
+		Detail:     detail,
+		Evidence:   ev,
+	}
+}
+
+// unreadyPod returns the named pod when it is present and un-ready, else any other un-ready pod,
+// else nil. Preferring the named one keeps the citation pointing at the pod the event actually came
+// from whenever that pod is still broken.
+func unreadyPod(s *model.Snapshot, prefer string) *model.PodView {
+	var fallback *model.PodView
+	for i := range s.Pods {
+		if s.Pods[i].Ready {
+			continue
+		}
+		if s.Pods[i].Name == prefer {
+			return &s.Pods[i]
+		}
+		if fallback == nil {
+			fallback = &s.Pods[i]
+		}
+	}
+	return fallback
+}
+
+// mountRef finds where the current template mounts the named volume, returning the ReplicaSet to
+// cite and the mount path. Mounts are projected as "name:path".
+func mountRef(s *model.Snapshot, volume string) (ref, mount string) {
+	rs, _ := currentRS(s)
+	if rs == nil {
+		return "", ""
+	}
+	for i := range rs.Template {
+		for _, m := range rs.Template[i].Mounts {
+			if n, path, ok := strings.Cut(m, ":"); ok && n == volume {
+				return "rs/" + rs.Name, path
+			}
+		}
+	}
+	return "", ""
 }
 
 // classifyConfigError reads the kubelet's message and says which object to go fix, plus that

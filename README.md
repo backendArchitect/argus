@@ -21,7 +21,7 @@ by hand.
 
 🌐 **[See it in action → backendarchitect.github.io/argus](https://backendarchitect.github.io/argus/)**
 
-> **Status: pre-release.** Six tools work end to end — eight detectors over 23 named causes,
+> **Status: pre-release.** Six tools work end to end — ten detectors over 26 named causes,
 > ranked findings, mandatory evidence — verified against fixtures captured from real clusters and
 > against live clusters on two Kubernetes versions nightly. See [Roadmap](#roadmap) for what is
 > next, and for the one v0.2 item deliberately left unbuilt.
@@ -216,13 +216,15 @@ claude mcp add argus -- argus serve
   EndpointSlice with no port at all, so every connection is refused while `kubectl get
   svc,pods,ingress` shows nothing wrong
 - **`argus update`** — verified, atomic self-update
-- **Eight detectors, 23 finding IDs** — crash loop (which distinguishes a container the runtime *cannot start* from
+- **Ten detectors, 26 finding IDs** — crash loop (which distinguishes a container the runtime *cannot start* from
   one that starts and exits, and reads the exit code: wrong entrypoint, segfault, abort, exits-zero,
   SIGTERM) · OOM limit too low · bad rollout · image pull (four distinct causes) ·
   readiness misconfigured · endpoint gap (selector typo vs readiness failure) ·
   unresolvable config reference (a missing ConfigMap, a missing Secret, or a key absent from one
-  that exists) · node-caused, which *widens scope* and suppresses the per-workload symptoms it
-  explains
+  that exists — read as env or mounted as a volume, which fail in different places) ·
+  unparseable image reference · an autoscaler that cannot compute a replica count · a disruption
+  budget that blocks every eviction while healthy · node-caused, which *widens scope* and
+  suppresses the per-workload symptoms it explains
 - **The broken-fixture suite** — each fixture asserts its detector fires **and no others do**,
   with a healthy control that must produce nothing — plus a nightly end-to-end gate that runs the
   detectors against live clusters on two Kubernetes versions, because fixtures cannot catch

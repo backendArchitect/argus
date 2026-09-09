@@ -36,11 +36,22 @@ clean one where a selector can only match its own pods.
 | `endpoint-gap.yaml` | Service selector has a typo | `endpoints.no-ready-backends` |
 | `bad-rollout-v1.yaml` → `-v2.yaml` | healthy revision, then a broken one | `rollout.bad-template` |
 | `missing-configmap.yaml` | `envFrom` names a ConfigMap that was never applied | `config.missing-configmap` |
+| `mount-missing-configmap.yaml` | the same object missing, mounted as a **volume** | `config.missing-configmap` |
+| `invalid-image-name.yaml` | image reference the kubelet cannot parse | `image.invalid-reference` |
+| `hpa-no-metrics.yaml` | HPA that cannot compute a replica count | `hpa.cannot-scale` |
+| `pdb-blocks-drain.yaml` | 1 replica, `minAvailable: 1` — blocks every eviction | `pdb.blocks-disruption` |
+| `pdb-has-headroom.yaml` | 3 replicas, `minAvailable: 1` — a correct budget | *(none — the PDB control)* |
 | `healthy.yaml` | nothing — the control | *(none — this is the false-positive check)* |
 
 `healthy.yaml` is the most important file here. Every detector runs against it,
 and any detector that fires has a false positive. Without a healthy control the
 suite only ever proves detectors are eager, never that they are discriminating.
+
+`pdb-has-headroom.yaml` is a second control of the same kind, narrower on
+purpose. `healthy.yaml` has no PodDisruptionBudget at all, so it proves only
+that the PDB detector ignores absence — never that it does the arithmetic
+correctly when a budget is present and fine. Any detector whose subject is an
+optional object needs a control of this shape, or its silence is untested.
 
 ## Not represented here
 

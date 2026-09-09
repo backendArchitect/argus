@@ -11,6 +11,60 @@ informer cache, which is deliberately unbuilt — see the note under Added.
 
 ### Added
 
+- **Three more silent misses closed**, all of them cases where argus previously reported
+  nothing about a workload that was plainly broken or plainly unmaintainable.
+
+  **The missing ConfigMap or Secret consumed as a volume** rather than as environment.
+  Reported under the same `config.missing-configmap` / `config.missing-secret` IDs as the
+  env form, because the object to create and the way to create it are identical — only
+  the line of the manifest to look at differs. It is found down a completely different
+  path, though, and is the harder of the two to diagnose by hand: the env form states the
+  problem on the container, while this one fails earlier in the kubelet's mount path and
+  leaves the container on `ContainerCreating` with an **empty** status message. The only
+  statement of the cause anywhere is a `FailedMount` event, which ages out after about an
+  hour, after which the cluster retains no explanation of why the pod is stuck at all.
+  The detector is therefore gated on the event rather than the state — `ContainerCreating`
+  is the normal state for the first seconds of every pod's life — plus a requirement that
+  the pod still be un-ready, since a pod that has since mounted and gone ready has had the
+  problem fixed.
+
+  **`image.invalid-reference`** — an image reference the kubelet cannot parse
+  (`reason=InvalidImageName`), most often a second colon from a tag pasted onto an
+  already-tagged image. Its own ID rather than a fifth pull cause, because it is not a
+  pull failure: the kubelet rejects the string before contacting any registry, so there is
+  no registry verdict to classify. Every other image finding sends you to the registry or
+  its credentials; this one sends you to the manifest, and retrying is a wasted move.
+
+  **`hpa.cannot-scale` and `pdb.blocks-disruption`** — the first detectors to read the HPA
+  and PDB. Both objects were already being fetched and projected on **every** diagnosis and
+  read by nothing at all, so the apiserver calls and the token budget were being spent to
+  reach no conclusion. Neither had ever been exercised by a fixture either; the two new
+  ones are the first to cover that gather path.
+
+  `hpa.cannot-scale` is the autoscaler that is not autoscaling: `ScalingActive=False`, so
+  no replica count is computed and the workload is pinned wherever it sits. Every object
+  looks fine — the HPA exists, the Deployment is Ready, the replica count reads as
+  deliberate — and the next traffic spike is an outage with no proximate cause in any log.
+
+  `pdb.blocks-disruption` is the cause of the incident that does not look like one: a node
+  drain, cluster upgrade or scale-down that hangs for hours while `kubectl drain` reports
+  only that it cannot evict a pod. The health gate is the entire discriminator and skipping
+  it would have made the detector actively harmful — **every** broken workload also has
+  `disruptionsAllowed: 0`, which is the budget working exactly as intended, so firing on
+  that would put a confident distraction on top of every real outage. It reports only when
+  the workload has met its bar and the budget still leaves no headroom, which means the
+  constraint is structural.
+
+  Both are **warnings, not criticals**, deliberately: neither stops the workload serving,
+  so neither may ever displace the critical that explains an actual outage.
+
+  Six new fixtures, five of them captured from live clusters. One is a second silence
+  control: `pdb-has-headroom` is the same shape as `pdb-blocks-drain` with a correctly
+  sized budget, and must produce nothing. `healthy` cannot cover that — it has no PDB, so
+  it proves only that the detector ignores absence, never that it does the arithmetic right
+  when a budget is present and fine. Any detector whose subject is an optional object needs
+  a control of that shape or its silence is untested.
+
 - **A detector for the config reference that does not resolve** —
   `config.missing-configmap`, `config.missing-secret`, `config.missing-key`, and
   `config.missing-reference` as the honest fallback.

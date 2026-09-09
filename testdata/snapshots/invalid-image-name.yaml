@@ -1,0 +1,117 @@
+degraded:
+- 'metrics: the server could not find the requested resource (get pods.metrics.k8s.io)'
+events:
+- count: 8
+  first_seen_seconds_ago: 77
+  last_seen_seconds_ago: 2
+  message: 'Error: InvalidImageName'
+  object_count: 1
+  object_kind: Pod
+  object_name: invalid-image-649d7dc86b-ksg26
+  reason: Failed
+  type: Warning
+- count: 8
+  first_seen_seconds_ago: 77
+  last_seen_seconds_ago: 2
+  message: 'Failed to apply default image tag "nginx:1.27:latest": couldn''t parse
+    image reference "nginx:1.27:latest": invalid reference format'
+  object_count: 1
+  object_kind: Pod
+  object_name: invalid-image-649d7dc86b-ksg26
+  reason: InspectFailed
+  type: Warning
+- count: 1
+  first_seen_seconds_ago: 77
+  last_seen_seconds_ago: 77
+  message: Successfully assigned argus-broken/invalid-image-<pod> to argus-test-control-plane
+  object_count: 1
+  object_kind: Pod
+  object_name: invalid-image-649d7dc86b-ksg26
+  reason: Scheduled
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 78
+  last_seen_seconds_ago: 78
+  message: Scaled up replica set invalid-image-<hash> to 1
+  object_count: 1
+  object_kind: Deployment
+  object_name: invalid-image
+  reason: ScalingReplicaSet
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 78
+  last_seen_seconds_ago: 78
+  message: 'Created pod: invalid-image-<pod>'
+  object_count: 1
+  object_kind: ReplicaSet
+  object_name: invalid-image-649d7dc86b
+  reason: SuccessfulCreate
+  type: Normal
+namespace: argus-broken
+nodes:
+- alloc_cpu: "16"
+  alloc_mem: 28358252Ki
+  name: argus-test-control-plane
+  ready: true
+pods:
+- containers:
+  - image: nginx:1.27:latest
+    name: app
+    ready: false
+    request_cpu: 10m
+    request_mem: 16Mi
+    restart_count: 0
+    started: false
+    state:
+      message: 'Failed to apply default image tag "nginx:1.27:latest": couldn''t parse
+        image reference "nginx:1.27:latest": invalid reference format'
+      reason: InvalidImageName
+      status: waiting
+  created_seconds_ago: 78
+  labels:
+    app: invalid-image
+    pod-template-hash: 649d7dc86b
+  name: invalid-image-649d7dc86b-ksg26
+  node: argus-test-control-plane
+  owner_kind: ReplicaSet
+  owner_name: invalid-image-649d7dc86b
+  phase: Pending
+  ready: false
+replicasets:
+- available: 0
+  created_seconds_ago: 78
+  current: true
+  desired: 1
+  name: invalid-image-649d7dc86b
+  ready: 0
+  revision: "1"
+  template:
+  - image: nginx:1.27:latest
+    name: app
+    request_cpu: 10m
+    request_mem: 16Mi
+scope: workload/argus-broken/invalid-image
+workload:
+  available: 0
+  conditions:
+  - last_change_seconds_ago: 78
+    message: Deployment does not have minimum availability.
+    reason: MinimumReplicasUnavailable
+    status: "False"
+    type: Available
+  - last_change_seconds_ago: 78
+    message: ReplicaSet "invalid-image-649d7dc86b" is progressing.
+    reason: ReplicaSetUpdated
+    status: "True"
+    type: Progressing
+  created_seconds_ago: 78
+  desired: 1
+  generation: 1
+  kind: Deployment
+  name: invalid-image
+  namespace: argus-broken
+  observed_generation: 1
+  ready: 0
+  selector:
+    app: invalid-image
+  updated: 1

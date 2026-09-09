@@ -37,7 +37,9 @@ $K version -o json 2>/dev/null | grep -oE '"gitVersion": "v[^"]+"' | tail -1 || 
 step "applying the broken workloads"
 $K apply -f "$ROOT/testdata/broken/00-namespace.yaml" >/dev/null
 for f in oom-limit-too-low image-pull-typo readiness-too-fast endpoint-gap healthy \
-         noisy-crashloop bad-entrypoint unschedulable port-name-typo missing-configmap; do
+         noisy-crashloop bad-entrypoint unschedulable port-name-typo missing-configmap \
+         mount-missing-configmap invalid-image-name hpa-no-metrics pdb-blocks-drain \
+         pdb-has-headroom; do
   $K apply -f "$ROOT/testdata/broken/$f.yaml" >/dev/null
 done
 # The rollout fixture needs a healthy revision in history first: the detector's claim is
@@ -115,6 +117,12 @@ assert_finding bad-entrypoint  'crashloop.container-wont-start'
 # No wait gate above for this one: the kubelet reports CreateContainerConfigError on its first
 # sync of the pod, so it is diagnosable within seconds rather than after a backoff.
 assert_finding missing-config  'config.missing-configmap'
+assert_finding mount-missing-config 'config.missing-configmap'
+assert_finding invalid-image   'image.invalid-reference'
+assert_finding pdb-pinned      'pdb.blocks-disruption'
+# The HPA controller needs a moment to publish ScalingActive after the object is created; the
+# waits above cover far longer than that, so no extra gate is needed here either.
+assert_finding hpa-stuck       'hpa.cannot-scale'
 
 step "the healthy control stays silent"
 out="$("$ARGUS" diagnose healthy -n "$NS" --context "$CONTEXT" 2>&1)"
@@ -122,6 +130,17 @@ if grep -q 'No findings' <<<"$out"; then
   ok "healthy → no findings"
 else
   bad "healthy produced findings — a false positive:"; sed 's/^/      /' <<<"$out" | head -12
+fi
+# The second control, for the PDB detector specifically. healthy has no PDB, so it only proves the
+# detector ignores absence; this one has a real, correctly-sized budget it must do the arithmetic
+# on and still say nothing. A detector that fires on both this and pdb-pinned is reporting "you
+# have a PDB", which is not a diagnosis.
+out="$("$ARGUS" diagnose pdb-roomy -n "$NS" --context "$CONTEXT" 2>&1)"
+if grep -q 'No findings' <<<"$out"; then
+  ok "pdb-roomy → no findings (a sized budget is not a fault)"
+else
+  bad "pdb-roomy produced findings — the PDB detector is over-firing:"
+  sed 's/^/      /' <<<"$out" | head -12
 fi
 
 step "explain_pending does the arithmetic"

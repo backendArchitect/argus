@@ -509,7 +509,7 @@ digests, git SHAs and snake-cased identifiers.
 
 ## Detectors
 
-Eight detectors produce 23 distinct finding IDs: several detectors split one signal
+Ten detectors produce 26 distinct finding IDs: several detectors split one signal
 into separate causes, because a shared symptom with different remedies is not one
 diagnosis. Each is a pure function over a `model.Snapshot`. Findings are ranked
 severity-first, then by confidence — a 0.99-confidence warning never outranks a
@@ -530,12 +530,15 @@ severity-first, then by confidence — a 0.99-confidence warning never outranks 
 | `image.pull-unauthorized` | Credentials refused | Missing `imagePullSecret`, wrong registry, or expired creds — *not* a missing tag. |
 | `image.pull-rate-limited` | Registry rate limit | Retrying will not help; authenticating or mirroring will. |
 | `image.pull-failed` | Pull failed, cause unrecognised | Honest fallback at lower confidence rather than guessing "typo". |
+| `image.invalid-reference` | `InvalidImageName` | Not a pull failure at all — the kubelet rejects the string before contacting a registry, so this is the one image finding that sends you to the manifest rather than to the registry or its credentials. Retrying and fixing `imagePullSecrets` are both wasted moves. |
 | `endpoints.selector-matches-nothing` | Selector matches 0 pods | A label typo. The workload is healthy and `kubectl get` looks fine. |
 | `endpoints.no-ready-backends` | Matches pods, none ready | A readiness problem, not a Service problem. |
 | `config.missing-configmap` / `.missing-secret` | `CreateContainerConfigError`, kubelet names an object that is absent | The object to go create, and for a Secret the reminder that it is often produced by a controller (sealed-secrets, external-secrets, a cloud CSI driver) rather than by the manifest, which moves the fault to the controller. |
 | `config.missing-key` | The ConfigMap or Secret exists; the key does not | The quiet one: `kubectl get` shows the object present and healthy, and a single key inside it is missing. Usually a key renamed on one side of a deploy. |
 | `config.missing-reference` | `CreateContainerConfigError` naming nothing | Honest fallback at lower confidence, pointing at the env, envFrom and volume references rather than guessing one. |
 | `probe.readiness-misconfigured` | Running, alive, never ready | Compares the probe's real deadline (`initialDelay + period × failureThreshold`) against observed uptime. Skips crashing containers — that is a different story with a different fix. |
+| `hpa.cannot-scale` | HPA reports `ScalingActive=False` | The autoscaler that is not autoscaling. Every object looks fine — the HPA exists, the Deployment is Ready — but no replica count is being computed, so the workload cannot respond to load and the next spike is an outage with no proximate cause in any log. Warning, not critical: it is serving now. |
+| `pdb.blocks-disruption` | `disruptionsAllowed == 0` **while healthy** | The cause of the incident that does not look like one: a drain or upgrade that hangs for hours. The health gate is the whole point — every *broken* workload also has 0 allowed, which is the budget working as intended, so firing on that would distract from every real outage. |
 | `node.unhealthy-host` | Node condition abnormal | **Widens scope** and suppresses the workload findings it explains. Requires an actual node condition: on a single-node cluster every pod shares a node, so co-location alone carries no information. |
 
 ### A crash loop must be looping now

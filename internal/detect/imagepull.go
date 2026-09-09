@@ -50,6 +50,40 @@ func detectImagePull(s *model.Snapshot) []model.Finding {
 			if c.State.Status != "waiting" {
 				continue
 			}
+			// A malformed reference is not a pull failure at all: the kubelet rejects the string
+			// before contacting any registry, so there is no registry error to classify and none
+			// of the four pull causes below can apply. Verified on 1.25.3 and 1.35.5 — the image
+			// "nginx:1.27:latest" yields reason=InvalidImageName with:
+			//
+			//	Failed to apply default image tag "nginx:1.27:latest": couldn't parse image
+			//	reference "nginx:1.27:latest": invalid reference format
+			//
+			// Worth its own ID rather than folding into image.pull-failed, because every other
+			// image finding sends you to the registry or its credentials and this one sends you to
+			// the manifest. It is also unambiguous, so it claims high confidence: the kubelet is
+			// reporting a parse failure of a string we can read ourselves, not a remote verdict.
+			if c.State.Reason == "InvalidImageName" {
+				return []model.Finding{{
+					ID:         "image.invalid-reference",
+					Severity:   model.Critical,
+					Confidence: 0.98,
+					Scope:      workloadScope(s),
+					Title:      "The image reference is not a valid image name",
+					Detail: fmt.Sprintf("The kubelet could not parse %q as an image reference, so "+
+						"it never attempted a pull and no registry was contacted. This is a "+
+						"syntax error in the manifest rather than a missing or unreachable "+
+						"image — most often a second colon from a tag pasted onto an "+
+						"already-tagged image, an uppercase character (references must be "+
+						"lowercase), or an unsubstituted template variable. Container %q of %s "+
+						"cannot start, and no amount of retrying or fixing registry credentials "+
+						"will change that.", c.Image, c.Name, pod.Name),
+					Evidence: []model.Evidence{
+						evidence("pod.status", "pod/"+pod.Name,
+							"container %q is InvalidImageName: %s", c.Name, firstLine(c.State.Message)),
+						evidence("pod.spec", "pod/"+pod.Name, "image is %q", c.Image),
+					},
+				}}
+			}
 			if c.State.Reason != "ImagePullBackOff" && c.State.Reason != "ErrImagePull" {
 				continue
 			}
