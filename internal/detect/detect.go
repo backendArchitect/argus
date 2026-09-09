@@ -31,6 +31,7 @@ var registry = []Detector{
 	{ID: "crashloop.exiting-nonzero", Detect: detectCrashLoop},
 	{ID: "rollout.bad-template", Detect: detectBadRollout},
 	{ID: "image.pull-failed", Detect: detectImagePull},
+	{ID: "config.missing-reference", Detect: detectConfigError},
 	{ID: "endpoints.no-ready-backends", Detect: detectEndpointGap},
 	{ID: "probe.readiness-misconfigured", Detect: detectReadinessMisconfigured},
 }

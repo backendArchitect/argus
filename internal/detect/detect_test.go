@@ -36,6 +36,9 @@ var fixtures = map[string][]string{
 	// The most common Kubernetes failure of all, and argus was silent on it until now.
 	"crashloop-nonzero":    {"crashloop.exiting-nonzero"},
 	"crashloop-wont-start": {"crashloop.container-wont-start"},
+	// A ConfigMap that was never applied. Produced ZERO findings before its detector existed:
+	// the container never terminates, so nothing else in the registry can see it.
+	"missing-configmap": {"config.missing-configmap"},
 	// Regressions, each distilled from a real false positive found by running against a live
 	// cluster. All three assert SILENCE, which is the hardest property to keep true as detectors
 	// grow — and the one that decides whether anyone trusts the tool at 3am.

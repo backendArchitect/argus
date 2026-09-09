@@ -26,6 +26,7 @@ targets=(
   "bad-rollout:bad-rollout"
   "noisy-crashloop:crashloop-nonzero"
   "bad-entrypoint:crashloop-wont-start"
+  "missing-config:missing-configmap"
   "healthy:healthy"
 )
 

@@ -35,6 +35,7 @@ clean one where a selector can only match its own pods.
 | `readiness-too-fast.yaml` | probe deadline 2s, startup takes 30s | `probe.readiness-misconfigured` |
 | `endpoint-gap.yaml` | Service selector has a typo | `endpoints.no-ready-backends` |
 | `bad-rollout-v1.yaml` → `-v2.yaml` | healthy revision, then a broken one | `rollout.bad-template` |
+| `missing-configmap.yaml` | `envFrom` names a ConfigMap that was never applied | `config.missing-configmap` |
 | `healthy.yaml` | nothing — the control | *(none — this is the false-positive check)* |
 
 `healthy.yaml` is the most important file here. Every detector runs against it,

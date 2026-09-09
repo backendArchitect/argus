@@ -37,7 +37,7 @@ $K version -o json 2>/dev/null | grep -oE '"gitVersion": "v[^"]+"' | tail -1 || 
 step "applying the broken workloads"
 $K apply -f "$ROOT/testdata/broken/00-namespace.yaml" >/dev/null
 for f in oom-limit-too-low image-pull-typo readiness-too-fast endpoint-gap healthy \
-         noisy-crashloop bad-entrypoint unschedulable port-name-typo; do
+         noisy-crashloop bad-entrypoint unschedulable port-name-typo missing-configmap; do
   $K apply -f "$ROOT/testdata/broken/$f.yaml" >/dev/null
 done
 # The rollout fixture needs a healthy revision in history first: the detector's claim is
@@ -112,6 +112,9 @@ assert_finding gapped          'endpoints.selector-matches-nothing'
 assert_finding slow-starter    'probe.readiness-misconfigured'
 assert_finding noisy-crashloop 'crashloop.exiting-nonzero'
 assert_finding bad-entrypoint  'crashloop.container-wont-start'
+# No wait gate above for this one: the kubelet reports CreateContainerConfigError on its first
+# sync of the pod, so it is diagnosable within seconds rather than after a backoff.
+assert_finding missing-config  'config.missing-configmap'
 
 step "the healthy control stays silent"
 out="$("$ARGUS" diagnose healthy -n "$NS" --context "$CONTEXT" 2>&1)"

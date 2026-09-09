@@ -11,6 +11,38 @@ informer cache, which is deliberately unbuilt — see the note under Added.
 
 ### Added
 
+- **A detector for the config reference that does not resolve** —
+  `config.missing-configmap`, `config.missing-secret`, `config.missing-key`, and
+  `config.missing-reference` as the honest fallback.
+
+  This one closes a silent miss rather than adding a capability. A container whose
+  `envFrom` or `valueFrom` names a ConfigMap or Secret that is not there produced
+  **zero findings**: argus reported nothing wrong about a Deployment that could never
+  start a single pod. It was invisible for a structural reason rather than a missing
+  string — the crash-loop detector's start-failure reasons are *terminated*-state
+  reasons, and this container never terminates. The kubelet retries forever, so it sits
+  in `waiting` with `CreateContainerConfigError` and `restartCount` 0 for as long as the
+  reference is broken, while `kubectl get pods` shows an unremarkable `0/1 Pending`.
+
+  The four IDs exist because the fix lives in a different object in each case, which is
+  the same reason `ImagePullBackOff` splits four ways. `config.missing-key` is the one
+  worth having: the ConfigMap or Secret *exists*, so `kubectl get` and any reconciler
+  watching it both look healthy, and it is one key inside it that the pod requires and
+  the object does not define. A missing Secret gets its own caveat, because unlike a
+  ConfigMap it is frequently created by a controller — sealed-secrets, external-secrets,
+  a cloud CSI driver — and then the broken thing is the controller, not the reference.
+
+  The finding carries **no log hint**, deliberately, and says so in words. Every other
+  critical finding points at `get_workload_logs`; following that reflex here costs a
+  round trip to discover an empty stream, because a container that was never created
+  has never written anything. A test asserts the hint stays absent.
+
+  Classification reads unstructured English out of the kubelet, so its wording is pinned
+  by a table of messages copied verbatim from live clusters and checked on Kubernetes
+  **1.25.3 and 1.35.5**, which produce byte-identical text. That table is the part a
+  fixture cannot protect: a re-captured fixture would drift in the same direction as the
+  change that broke the parsing.
+
 - **`trace_service_path`** and **`argus trace`** — the Service is up, the pods are
   Ready, and traffic still does not arrive. Walks Ingress rule → selector → targetPort
   → endpoint addresses → readiness and reports the **first** hop that gives out.
