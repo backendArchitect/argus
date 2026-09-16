@@ -21,7 +21,7 @@ by hand.
 
 🌐 **[See it in action → backendarchitect.github.io/argus](https://backendarchitect.github.io/argus/)**
 
-> **Status: pre-release.** Six tools work end to end — ten detectors over 26 named causes,
+> **Status: pre-release.** Six tools work end to end — eleven detectors over 27 named causes,
 > ranked findings, mandatory evidence — verified against fixtures captured from real clusters and
 > against live clusters on two Kubernetes versions nightly. See [Roadmap](#roadmap) for what is
 > next, and for the one v0.2 item deliberately left unbuilt.
@@ -216,10 +216,12 @@ claude mcp add argus -- argus serve
   EndpointSlice with no port at all, so every connection is refused while `kubectl get
   svc,pods,ingress` shows nothing wrong
 - **`argus update`** — verified, atomic self-update
-- **Ten detectors, 26 finding IDs** — crash loop (which distinguishes a container the runtime *cannot start* from
+- **Eleven detectors, 27 finding IDs** — crash loop (which distinguishes a container the runtime *cannot start* from
   one that starts and exits, and reads the exit code: wrong entrypoint, segfault, abort, exits-zero,
   SIGTERM) · OOM limit too low · bad rollout · image pull (four distinct causes) ·
-  readiness misconfigured · endpoint gap (selector typo vs readiness failure) ·
+  readiness misconfigured · a startup probe killing a slow boot before it finishes (which
+  *widens scope* over the crash loop it is mistaken for) · endpoint gap (selector typo vs
+  readiness failure) ·
   unresolvable config reference (a missing ConfigMap, a missing Secret, or a key absent from one
   that exists — read as env or mounted as a volume, which fail in different places) ·
   unparseable image reference · an autoscaler that cannot compute a replica count · a disruption

@@ -509,7 +509,7 @@ digests, git SHAs and snake-cased identifiers.
 
 ## Detectors
 
-Ten detectors produce 26 distinct finding IDs: several detectors split one signal
+Eleven detectors produce 27 distinct finding IDs: several detectors split one signal
 into separate causes, because a shared symptom with different remedies is not one
 diagnosis. Each is a pure function over a `model.Snapshot`. Findings are ranked
 severity-first, then by confidence — a 0.99-confidence warning never outranks a
@@ -536,6 +536,7 @@ severity-first, then by confidence — a 0.99-confidence warning never outranks 
 | `config.missing-configmap` / `.missing-secret` | `CreateContainerConfigError`, kubelet names an object that is absent | The object to go create, and for a Secret the reminder that it is often produced by a controller (sealed-secrets, external-secrets, a cloud CSI driver) rather than by the manifest, which moves the fault to the controller. |
 | `config.missing-key` | The ConfigMap or Secret exists; the key does not | The quiet one: `kubectl get` shows the object present and healthy, and a single key inside it is missing. Usually a key renamed on one side of a deploy. |
 | `config.missing-reference` | `CreateContainerConfigError` naming nothing | Honest fallback at lower confidence, pointing at the env, envFrom and volume references rather than guessing one. |
+| `probe.startup-too-short` | Startup probe configured, `started=false`, restarts climbing, killed by signal | The slow boot that looks exactly like a crash loop. Liveness and readiness probes do not run until a startup probe passes, so with `started=false` nothing else can be the killer — which is what lets it claim a critical from few fields. **Suppresses** the crash-loop findings, whose "go read the logs" advice is a dead end here: the logs show an application booting correctly and getting shot partway through. |
 | `probe.readiness-misconfigured` | Running, alive, never ready | Compares the probe's real deadline (`initialDelay + period × failureThreshold`) against observed uptime. Skips crashing containers — that is a different story with a different fix. |
 | `hpa.cannot-scale` | HPA reports `ScalingActive=False` | The autoscaler that is not autoscaling. Every object looks fine — the HPA exists, the Deployment is Ready — but no replica count is being computed, so the workload cannot respond to load and the next spike is an outage with no proximate cause in any log. Warning, not critical: it is serving now. |
 | `pdb.blocks-disruption` | `disruptionsAllowed == 0` **while healthy** | The cause of the incident that does not look like one: a drain or upgrade that hangs for hours. The health gate is the whole point — every *broken* workload also has 0 allowed, which is the budget working as intended, so firing on that would distract from every real outage. |

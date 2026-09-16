@@ -1,0 +1,50 @@
+# An application that needs 90s to boot, given a 6s startup budget (period 2 x threshold 3).
+#
+# The slow-starting application that looks exactly like a crash loop and is not one. The kubelet
+# kills it by SIGKILL every ~6s, forever, and `kubectl get pods` shows a rising restart count that
+# reads as an application that keeps falling over. Its logs show a process booting perfectly
+# normally and getting shot partway through.
+#
+# Distinct from readiness-too-fast.yaml, which is the *readiness* probe on a container that is
+# running and staying up. This one never gets to run at all.
+#
+# Before its detector existed this produced ZERO findings on a live cluster, and it fell through
+# every gate for a different reason each time:
+#
+#   · detectCrashLoop wants the container waiting or terminated right now — this one is usually
+#     caught running, partway through a boot window it never finishes.
+#   · detectReadinessMisconfigured wants a readiness probe, and there is deliberately none here:
+#     a startup probe without a readiness probe is perfectly ordinary.
+#   · exit 137 is absent from byExitCode, so on the timing where it IS caught terminated it lands
+#     on crashloop.exiting-nonzero — "only the logs say why" — which is the worst of the three,
+#     because the logs show nothing wrong and the reader hunts a bug that does not exist.
+#
+# The detector therefore suppresses the crash-loop findings rather than appearing beside them.
+#
+# The reasoning that makes it safe to claim high confidence is a rule of Kubernetes, not a
+# heuristic: liveness and readiness probes do not run until the startup probe succeeds, so while
+# started=false no other probe can be the one doing the killing.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: slow-boot
+  namespace: argus-broken
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: slow-boot}
+  template:
+    metadata:
+      labels: {app: slow-boot}
+    spec:
+      containers:
+        - name: app
+          image: busybox:1.36
+          # Ready only after 90s — far past what the probe below tolerates.
+          command: ["sh", "-c", "sleep 90; touch /tmp/ready; sleep 3600"]
+          startupProbe:
+            exec: {command: ["cat", "/tmp/ready"]}
+            periodSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests: {memory: 16Mi, cpu: 10m}

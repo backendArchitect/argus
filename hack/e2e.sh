@@ -39,7 +39,7 @@ $K apply -f "$ROOT/testdata/broken/00-namespace.yaml" >/dev/null
 for f in oom-limit-too-low image-pull-typo readiness-too-fast endpoint-gap healthy \
          noisy-crashloop bad-entrypoint unschedulable port-name-typo missing-configmap \
          mount-missing-configmap invalid-image-name hpa-no-metrics pdb-blocks-drain \
-         pdb-has-headroom; do
+         pdb-has-headroom startup-too-short; do
   $K apply -f "$ROOT/testdata/broken/$f.yaml" >/dev/null
 done
 # The rollout fixture needs a healthy revision in history first: the detector's claim is
@@ -79,6 +79,9 @@ while [ $SECONDS -lt $deadline ]; do
   [ "$(restarts oom-victim)"      -ge 2 ] && ready=$((ready+1))
   [ "$(restarts noisy-crashloop)" -ge 2 ] && ready=$((ready+1))
   [ "$(restarts bad-entrypoint)"  -ge 2 ] && ready=$((ready+1))
+  # slow-boot is killed by its startup probe every ~6s; two restarts prove the loop, and the
+  # detector deliberately stays quiet below that for the same reason the crash-loop one does.
+  [ "$(restarts slow-boot)"       -ge 2 ] && ready=$((ready+1))
   # An image that cannot be pulled never restarts; the waiting reason is the signal.
   case "$(waiting_reason pull-typo)" in *ImagePull*|*ErrImage*) ready=$((ready+1));; esac
   case "$(phase too-big)"           in *Pending*)               ready=$((ready+1));; esac
@@ -88,7 +91,7 @@ while [ $SECONDS -lt $deadline ]; do
   # normal deploy looks briefly like a failing one and a tool that cries wolf during
   # deploys gets muted. So the gate has to outwait that grace period rather than race it.
   [ $(( SECONDS - rollout_applied )) -ge 70 ] && ready=$((ready+1))
-  [ "$ready" -ge 7 ] && break
+  [ "$ready" -ge 8 ] && break
   sleep 10
 done
 echo "  waited $((SECONDS))s; pod states:"
@@ -123,6 +126,7 @@ assert_finding pdb-pinned      'pdb.blocks-disruption'
 # The HPA controller needs a moment to publish ScalingActive after the object is created; the
 # waits above cover far longer than that, so no extra gate is needed here either.
 assert_finding hpa-stuck       'hpa.cannot-scale'
+assert_finding slow-boot       'probe.startup-too-short'
 
 step "the healthy control stays silent"
 out="$("$ARGUS" diagnose healthy -n "$NS" --context "$CONTEXT" 2>&1)"

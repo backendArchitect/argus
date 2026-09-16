@@ -33,6 +33,9 @@ var registry = []Detector{
 	{ID: "image.pull-failed", Detect: detectImagePull},
 	{ID: "config.missing-reference", Detect: detectConfigError},
 	{ID: "endpoints.no-ready-backends", Detect: detectEndpointGap},
+	// Before the crash-loop detector, because it explains a subset of what that one would
+	// otherwise report as an application fault, and suppresses it.
+	{ID: "probe.startup-too-short", Detect: detectStartupProbeTooShort},
 	{ID: "probe.readiness-misconfigured", Detect: detectReadinessMisconfigured},
 	// Last in tie-break order: both are warnings about capacity and maintenance rather than about
 	// a workload that is down, so on the rare snapshot where they tie with something else, the

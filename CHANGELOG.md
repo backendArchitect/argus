@@ -11,6 +11,40 @@ informer cache, which is deliberately unbuilt — see the note under Added.
 
 ### Added
 
+- **`probe.startup-too-short`** — the slow-starting application that looks exactly like a
+  crash loop and is not one. A startup probe whose budget is shorter than the real boot
+  time makes the kubelet SIGKILL the container partway through starting, forever, while
+  `kubectl get pods` shows a rising restart count that reads as an application falling over.
+
+  Verified on a live cluster, and it produced **zero findings** — a workload restarting
+  every ~35 seconds indefinitely, reported as nothing wrong. It fell through every existing
+  gate, each for a different reason, which is why it survived this long:
+
+  - the crash-loop detector requires the container to be waiting or terminated *right now*,
+    and this one is usually caught **running**, partway through a boot window it never
+    finishes;
+  - the readiness detector requires a readiness probe, and a startup probe without one is
+    perfectly ordinary;
+  - exit **137 is not in the exit-code map**, so on the timing that does catch it
+    terminated, it lands on the `crashloop.exiting-nonzero` fallback — "only the logs say
+    why". That is the worst of the three outcomes: the logs show an application booting
+    correctly, so the reader spends the incident hunting a bug that does not exist.
+
+  The detector therefore **suppresses** both crash-loop findings rather than appearing
+  beside them, the same scope-widening mechanism the node detector uses. The container is
+  not crashing; it is being killed, and reporting both states one cause twice.
+
+  What makes a critical defensible from so few fields is a rule of Kubernetes rather than a
+  heuristic: **liveness and readiness probes do not run until the startup probe succeeds.**
+  So while `started=false`, no other probe can be the one doing the killing. The remaining
+  ambiguity — an application that crashes on its own — is settled by the exit code: a
+  signal kill (137/143) is the kubelet, and any other code is the application. OOMKilled is
+  excluded explicitly, since it shares 137 and has a different fix.
+
+  Unlike the config detectors, this one **does** point at logs — `previous=true`
+  specifically, because the killed instance is what shows how far the boot actually got,
+  which is the number the budget should be sized against.
+
 - **Three more silent misses closed**, all of them cases where argus previously reported
   nothing about a workload that was plainly broken or plainly unmaintainable.
 

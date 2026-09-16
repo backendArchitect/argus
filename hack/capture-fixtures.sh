@@ -32,6 +32,7 @@ targets=(
   "hpa-stuck:hpa-cannot-scale"
   "pdb-pinned:pdb-blocks-drain"
   "pdb-roomy:pdb-has-headroom"
+  "slow-boot:startup-too-short"
   "healthy:healthy"
 )
 

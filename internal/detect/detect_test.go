@@ -55,6 +55,10 @@ var fixtures = map[string][]string{
 	// pdb-blocks-drain but correctly sized, so it must stay silent. `healthy` cannot prove this —
 	// it has no PDB, so it only ever proves the detector does not fire on absence.
 	"pdb-has-headroom": {},
+	// A 90s boot given a 6s startup budget. Produced ZERO findings before its detector existed:
+	// caught running mid-boot-window, it fell through crashloop (wants waiting/terminated),
+	// readiness (wants a readiness probe) and the exit-code map (137 is not in it).
+	"startup-too-short": {"probe.startup-too-short"},
 	// Regressions, each distilled from a real false positive found by running against a live
 	// cluster. All three assert SILENCE, which is the hardest property to keep true as detectors
 	// grow — and the one that decides whether anyone trusts the tool at 3am.

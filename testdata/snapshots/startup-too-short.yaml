@@ -1,0 +1,165 @@
+degraded:
+- 'metrics: the server could not find the requested resource (get pods.metrics.k8s.io)'
+events:
+- count: 9
+  first_seen_seconds_ago: 85
+  last_seen_seconds_ago: 9
+  message: 'Startup probe failed: cat: can''t open ''/tmp/ready'': No such file or
+    directory'
+  object_count: 1
+  object_kind: Pod
+  object_name: slow-boot-86f496d648-cjdnh
+  reason: Unhealthy
+  type: Warning
+- count: 3
+  first_seen_seconds_ago: 81
+  last_seen_seconds_ago: 9
+  message: Container app failed startup probe, will be restarted
+  object_count: 1
+  object_kind: Pod
+  object_name: slow-boot-86f496d648-cjdnh
+  reason: Killing
+  type: Normal
+- count: 3
+  first_seen_seconds_ago: 87
+  last_seen_seconds_ago: 15
+  message: Created container app
+  object_count: 1
+  object_kind: Pod
+  object_name: slow-boot-86f496d648-cjdnh
+  reason: Created
+  type: Normal
+- count: 3
+  first_seen_seconds_ago: 87
+  last_seen_seconds_ago: 15
+  message: Container image "busybox:1.36" already present on machine
+  object_count: 1
+  object_kind: Pod
+  object_name: slow-boot-86f496d648-cjdnh
+  reason: Pulled
+  type: Normal
+- count: 3
+  first_seen_seconds_ago: 87
+  last_seen_seconds_ago: 15
+  message: Started container app
+  object_count: 1
+  object_kind: Pod
+  object_name: slow-boot-86f496d648-cjdnh
+  reason: Started
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 87
+  last_seen_seconds_ago: 87
+  message: Scaled up replica set slow-boot-<hash> to 1
+  object_count: 1
+  object_kind: Deployment
+  object_name: slow-boot
+  reason: ScalingReplicaSet
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 87
+  last_seen_seconds_ago: 87
+  message: Successfully assigned argus-broken/slow-boot-<pod> to argus-test-control-plane
+  object_count: 1
+  object_kind: Pod
+  object_name: slow-boot-86f496d648-cjdnh
+  reason: Scheduled
+  type: Normal
+- count: 1
+  first_seen_seconds_ago: 87
+  last_seen_seconds_ago: 87
+  message: 'Created pod: slow-boot-<pod>'
+  object_count: 1
+  object_kind: ReplicaSet
+  object_name: slow-boot-86f496d648
+  reason: SuccessfulCreate
+  type: Normal
+namespace: argus-broken
+nodes:
+- alloc_cpu: "16"
+  alloc_mem: 28358240Ki
+  name: argus-test-control-plane
+  ready: true
+pods:
+- containers:
+  - image: busybox:1.36
+    last_state:
+      exit_code: 137
+      reason: Error
+      seconds_ago: 15
+      status: terminated
+    name: app
+    ready: false
+    request_cpu: 10m
+    request_mem: 16Mi
+    restart_count: 2
+    started: false
+    startup:
+      failure_threshold: 3
+      initial_delay: 0
+      kind: exec
+      period: 2
+      success_threshold: 1
+      timeout: 1
+    state:
+      seconds_ago: 15
+      status: running
+  created_seconds_ago: 87
+  labels:
+    app: slow-boot
+    pod-template-hash: 86f496d648
+  name: slow-boot-86f496d648-cjdnh
+  node: argus-test-control-plane
+  owner_kind: ReplicaSet
+  owner_name: slow-boot-86f496d648
+  phase: Running
+  ready: false
+replicasets:
+- available: 0
+  created_seconds_ago: 87
+  current: true
+  desired: 1
+  name: slow-boot-86f496d648
+  ready: 0
+  revision: "1"
+  template:
+  - command:
+    - sh
+    - -c
+    - sleep 90; touch /tmp/ready; sleep 3600
+    image: busybox:1.36
+    name: app
+    request_cpu: 10m
+    request_mem: 16Mi
+    startup:
+      failure_threshold: 3
+      initial_delay: 0
+      kind: exec
+      period: 2
+      success_threshold: 1
+      timeout: 1
+scope: workload/argus-broken/slow-boot
+workload:
+  available: 0
+  conditions:
+  - last_change_seconds_ago: 87
+    message: Deployment does not have minimum availability.
+    reason: MinimumReplicasUnavailable
+    status: "False"
+    type: Available
+  - last_change_seconds_ago: 87
+    message: ReplicaSet "slow-boot-86f496d648" is progressing.
+    reason: ReplicaSetUpdated
+    status: "True"
+    type: Progressing
+  created_seconds_ago: 87
+  desired: 1
+  generation: 1
+  kind: Deployment
+  name: slow-boot
+  namespace: argus-broken
+  observed_generation: 1
+  ready: 0
+  selector:
+    app: slow-boot
+  updated: 1

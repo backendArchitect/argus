@@ -41,6 +41,7 @@ clean one where a selector can only match its own pods.
 | `hpa-no-metrics.yaml` | HPA that cannot compute a replica count | `hpa.cannot-scale` |
 | `pdb-blocks-drain.yaml` | 1 replica, `minAvailable: 1` — blocks every eviction | `pdb.blocks-disruption` |
 | `pdb-has-headroom.yaml` | 3 replicas, `minAvailable: 1` — a correct budget | *(none — the PDB control)* |
+| `startup-too-short.yaml` | 90s boot on a 6s startup-probe budget | `probe.startup-too-short` |
 | `healthy.yaml` | nothing — the control | *(none — this is the false-positive check)* |
 
 `healthy.yaml` is the most important file here. Every detector runs against it,
