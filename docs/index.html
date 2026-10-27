@@ -9,23 +9,31 @@
 <meta property="og:title" content="argus — Kubernetes incident diagnosis">
 <meta property="og:description" content="One question in, one ranked diagnosis out. Read-only, evidence-backed, context-disciplined.">
 <meta property="og:type" content="website">
+<meta name="theme-color" content="#070a12">
+<script>
+// Runs before first paint: the saved choice wins, otherwise follow the OS.
+try{ document.documentElement.setAttribute("data-theme",
+  localStorage.getItem("argus-theme") || (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark")); }catch(e){}
+</script>
 <style>
 :root{
   --bg:#070a12; --bg-2:#0b0f1a; --panel:#0e1422; --panel-2:#121a2c;
   --line:#1c2740; --line-2:#26355a;
-  --fg:#e6edf7; --fg-dim:#94a3bd; --fg-mute:#64748b;
+  --fg:#e6edf7; --fg-dim:#94a3bd; --fg-mute:#7c8aa3;
   --cyan:#38e8ff; --violet:#a78bfa; --amber:#fbbf24; --rose:#fb7185; --green:#34d399;
   --glow:0 0 40px rgba(56,232,255,.18);
   --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
   --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   --maxw:1100px;
+  color-scheme:dark;
 }
 :root[data-theme="light"]{
   --bg:#f6f8fc; --bg-2:#eef2f9; --panel:#ffffff; --panel-2:#f3f6fb;
   --line:#dbe3f0; --line-2:#c3d0e6;
-  --fg:#0d1526; --fg-dim:#475069; --fg-mute:#6b7690;
-  --cyan:#0891b2; --violet:#7c3aed; --amber:#b45309; --rose:#e11d48; --green:#059669;
-  --glow:0 0 40px rgba(8,145,178,.10);
+  --fg:#0d1526; --fg-dim:#475069; --fg-mute:#5b6680;
+  --cyan:#0e7490; --violet:#7c3aed; --amber:#b45309; --rose:#be123c; --green:#047857;
+  --glow:0 0 40px rgba(14,116,144,.10);
+  color-scheme:light;
 }
 *{box-sizing:border-box}
 /* scroll-padding-top stops every in-page jump landing the heading UNDERNEATH the sticky nav,
@@ -53,14 +61,15 @@ body{
 .orb-b{width:460px;height:460px;background:radial-gradient(circle,var(--violet),transparent 65%);top:220px;right:-140px;animation-delay:-9s}
 @keyframes drift{from{transform:translate3d(0,0,0) scale(1)}to{transform:translate3d(60px,50px,0) scale(1.14)}}
 
-.wrap{position:relative;z-index:1;max-width:var(--maxw);margin:0 auto;padding:0 24px}
+.wrap{position:relative;z-index:1;max-width:var(--maxw);margin:0 auto;padding-inline:24px}
 
 /* ---------- scroll progress ---------- */
 .progress{
-  position:fixed;top:0;left:0;height:2px;width:0;z-index:60;
+  position:fixed;top:0;left:0;height:2px;width:100%;z-index:60;
+  transform:scaleX(0);transform-origin:0 50%;
   background:linear-gradient(90deg,var(--cyan),var(--violet));
   box-shadow:0 0 12px color-mix(in srgb,var(--cyan) 60%,transparent);
-  transition:width .08s linear
+  transition:transform .08s linear
 }
 
 /* ---------- nav ---------- */
@@ -85,8 +94,10 @@ nav{
 .nav-links a.active{color:var(--cyan)}
 .theme-btn{
   background:var(--panel);border:1px solid var(--line);color:var(--fg-dim);
-  border-radius:8px;padding:5px 9px;cursor:pointer;font-size:.95rem;line-height:1;transition:all .2s
+  border-radius:8px;width:38px;height:38px;padding:0;cursor:pointer;
+  display:inline-grid;place-items:center;transition:color .2s,border-color .2s
 }
+.theme-btn svg{width:18px;height:18px}
 .theme-btn:hover{border-color:var(--cyan);color:var(--cyan)}
 /* (the responsive nav lives in the media blocks at the end of this stylesheet) */
 
@@ -129,6 +140,7 @@ h1{
   font-weight:600;font-size:.95rem;text-decoration:none;transition:transform .18s,box-shadow .18s,border-color .18s
 }
 .btn-1{background:linear-gradient(100deg,var(--cyan),var(--violet));color:#04070f;box-shadow:var(--glow)}
+:root[data-theme="light"] .btn-1{color:#fff}
 .btn-1:hover{transform:translateY(-2px);box-shadow:0 10px 40px rgba(56,232,255,.36)}
 .btn-2{background:var(--panel);border:1px solid var(--line-2);color:var(--fg)}
 .btn-2:hover{border-color:var(--cyan);transform:translateY(-2px)}
@@ -153,7 +165,7 @@ section{padding:64px 0;position:relative;z-index:1}
   font-family:var(--mono);font-size:.74rem;letter-spacing:.16em;text-transform:uppercase;
   color:var(--cyan);margin-bottom:10px
 }
-h2{font-size:clamp(1.75rem,3.4vw,2.35rem);letter-spacing:-.03em;margin:0 0 16px;font-weight:750;text-wrap:balance}
+h2{font-size:clamp(1.75rem,3.4vw,2.35rem);line-height:1.2;letter-spacing:-.03em;margin:0 0 16px;font-weight:750;text-wrap:balance}
 .lede{color:var(--fg-dim);max-width:820px;margin:0 0 34px;font-size:1.04rem;line-height:1.72;text-wrap:pretty}
 code{
   font-family:var(--mono);font-size:.9em;letter-spacing:-.01em;
@@ -251,19 +263,20 @@ code{
 /* ---------- safety ---------- */
 .safe{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
 .safe-item{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--green);border-radius:11px;padding:18px}
-.safe-item h4{margin:0 0 6px;font-size:.95rem}
+.safe-item h3{margin:0 0 6px;font-size:.95rem}
 .safe-item p{margin:0;font-size:.88rem;color:var(--fg-dim)}
 .safe-item code{font-size:.82em}
 
 /* ---------- install ---------- */
 .code{
   background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:15px 17px;
-  font-family:var(--mono);font-size:.85rem;overflow-x:auto;position:relative;color:var(--fg)
+  font-family:var(--mono);font-size:.85rem;overflow-x:auto;position:relative;color:var(--fg);
+  padding-right:84px
 }
 .code .p{color:var(--cyan)}
 .copy{
   position:absolute;top:9px;right:9px;background:var(--panel-2);border:1px solid var(--line);
-  color:var(--fg-mute);border-radius:7px;padding:4px 9px;font-size:.72rem;cursor:pointer;
+  color:var(--fg-mute);border-radius:7px;padding:5px 11px;min-height:28px;font-size:.72rem;cursor:pointer;
   font-family:var(--mono);transition:all .2s
 }
 .copy:hover{color:var(--cyan);border-color:var(--cyan)}
@@ -284,7 +297,7 @@ footer a:hover{color:var(--cyan)}
 
 /* Keyboard users had no visible focus anywhere on the page. :focus-visible keeps it off mouse
    clicks, so this costs the pointer experience nothing. */
-a:focus-visible,button:focus-visible{
+a:focus-visible,button:focus-visible,[tabindex="0"]:focus-visible{
   outline:2px solid var(--cyan);outline-offset:3px;border-radius:6px
 }
 .skip{
@@ -308,7 +321,7 @@ a:focus-visible,button:focus-visible{
 
 /* ---------- phones & small tablets ---------- */
 @media(max-width:720px){
-  .wrap{padding:0 18px}
+  .wrap{padding-inline:18px}
   section{padding:44px 0}
   header{padding:52px 0 36px}
 
@@ -323,7 +336,7 @@ a:focus-visible,button:focus-visible{
   }
   .nav-links::-webkit-scrollbar{display:none}
   .nav-links a{white-space:nowrap;font-size:.88rem;padding:7px 0}
-  .theme-btn{margin-left:auto;padding:9px 12px}
+  .theme-btn{margin-left:auto;width:44px;height:44px}
 
   /* Inline code has to be allowed to break, or it is clipped by overflow-x:hidden. */
   code{white-space:normal;overflow-wrap:anywhere}
@@ -366,7 +379,7 @@ a:focus-visible,button:focus-visible{
 
 /* ---------- very small phones ---------- */
 @media(max-width:400px){
-  .wrap{padding:0 14px}
+  .wrap{padding-inline:14px}
   h1{font-size:1.75rem}
   .badge{font-size:.66rem;padding:5px 11px}
   .term-body{font-size:.66rem}
@@ -388,11 +401,11 @@ a:focus-visible,button:focus-visible{
 </style>
 </head>
 <body>
-<a class="skip" href="#how">Skip to content</a>
+<a class="skip" href="#main">Skip to content</a>
 <div class="progress" id="progress" aria-hidden="true"></div>
 <div class="bg-grid"></div><div class="bg-orb orb-a"></div><div class="bg-orb orb-b"></div>
 
-<nav>
+<nav aria-label="Primary">
   <div class="nav-in">
     <span class="brand">
       <svg class="eye" viewBox="0 0 32 32" aria-hidden="true">
@@ -412,7 +425,7 @@ a:focus-visible,button:focus-visible{
     </span>
     <!-- Outside .nav-links on purpose: on a phone the links become a scrollable row, and a
          theme toggle that scrolls off the edge is a control you cannot find. -->
-    <button class="theme-btn" id="theme" aria-label="Toggle colour theme">◐</button>
+    <button class="theme-btn" id="theme" aria-label="Switch to light theme"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></button>
   </div>
 </nav>
 
@@ -432,6 +445,7 @@ a:focus-visible,button:focus-visible{
   <p class="hero-note">Go 1.26 · MIT · no writes, enforced by the build</p>
 </header>
 
+<main id="main" tabindex="-1">
 <section id="how" class="wrap">
   <div class="rv">
     <p class="eyebrow">The thesis</p>
@@ -471,7 +485,7 @@ a:focus-visible,button:focus-visible{
       <span class="tl" style="background:#34d399"></span>
       <span class="term-title">argus diagnose</span>
     </div>
-    <div class="term-body" id="term"><noscript>$ argus diagnose oom-victim -n argus-broken
+    <div class="term-body" id="term" tabindex="0" role="region" aria-label="argus diagnose output"><noscript>$ argus diagnose oom-victim -n argus-broken
 
 DIAGNOSIS  Deployment argus-broken/oom-victim
 findings   1 (1 critical)
@@ -488,17 +502,17 @@ findings   1 (1 critical)
     <p class="eyebrow">The difference</p>
     <h2>Resource-shaped vs question-shaped</h2>
   </div>
-  <div class="tbl-wrap rv">
+  <div class="tbl-wrap rv" tabindex="0" role="region" aria-label="Comparison: typical Kubernetes MCP server vs argus">
     <table class="cmp">
-      <thead><tr><th></th><th>Typical k8s MCP server</th><th style="color:var(--cyan)">argus</th></tr></thead>
+      <thead><tr><td></td><th scope="col">Typical k8s MCP server</th><th scope="col" style="color:var(--cyan)">argus</th></tr></thead>
       <tbody>
-        <tr><th>Tool surface</th><td class="them">40–100+, mirroring kubectl</td><td class="us">6, one per SRE question</td></tr>
-        <tr><th>Correlation</th><td class="them">the model does it, over many calls</td><td class="us">server-side, in one call</td></tr>
-        <tr><th>Output</th><td class="them">raw objects to interpret</td><td class="us">ranked findings, evidence mandatory</td></tr>
-        <tr><th>Context per pod</th><td class="them">2,000+ tokens</td><td class="us">under 400, enforced by test</td></tr>
-        <tr><th>Repeated events</th><td class="them">one line each</td><td class="us">deduplicated, blast radius kept</td></tr>
-        <tr><th>Confidence</th><td class="them">absent, or implied certainty</td><td class="us">stated, and lowered on partial data</td></tr>
-        <tr><th>Writes</th><td class="them">usually available, sometimes gated</td><td class="us">none — no mutating call site exists</td></tr>
+        <tr><th scope="row">Tool surface</th><td class="them">40–100+, mirroring kubectl</td><td class="us">6, one per SRE question</td></tr>
+        <tr><th scope="row">Correlation</th><td class="them">the model does it, over many calls</td><td class="us">server-side, in one call</td></tr>
+        <tr><th scope="row">Output</th><td class="them">raw objects to interpret</td><td class="us">ranked findings, evidence mandatory</td></tr>
+        <tr><th scope="row">Context per pod</th><td class="them">2,000+ tokens</td><td class="us">under 400, enforced by test</td></tr>
+        <tr><th scope="row">Repeated events</th><td class="them">one line each</td><td class="us">deduplicated, blast radius kept</td></tr>
+        <tr><th scope="row">Confidence</th><td class="them">absent, or implied certainty</td><td class="us">stated, and lowered on partial data</td></tr>
+        <tr><th scope="row">Writes</th><td class="them">usually available, sometimes gated</td><td class="us">none — no mutating call site exists</td></tr>
       </tbody>
     </table>
   </div>
@@ -556,23 +570,23 @@ findings   1 (1 critical)
   </div>
   <div class="safe rv stagger">
     <div class="safe-item">
-      <h4>No mutating call site</h4>
+      <h3>No mutating call site</h3>
       <p>A test walks the entire source AST and fails the build on any call to <code>Create</code>, <code>Update</code>, <code>Patch</code>, <code>Delete</code>, <code>Apply</code> or <code>Evict</code> — with a companion test proving the walk can actually fail.</p>
     </div>
     <div class="safe-item">
-      <h4>Prompt injection can mislead, never act</h4>
+      <h3>Prompt injection can mislead, never act</h3>
       <p>Log and event text is user-controlled and reaches model context. argus frames it as untrusted data — but the real mitigation is structural: there is no mutation path to reach.</p>
     </div>
     <div class="safe-item">
-      <h4>Secrets never leave</h4>
+      <h3>Secrets never leave</h3>
       <p><code>Secret</code> objects are never read. Environment variable <em>values</em> are never projected — only key names, which is all a detector needs. Verified by test.</p>
     </div>
     <div class="safe-item">
-      <h4>Self-update fails closed</h4>
+      <h3>Self-update fails closed</h3>
       <p>The one thing argus writes is its own binary. The published SHA-256 must match or the update is abandoned, HTTPS is required across redirects, and the swap is a rename — a failure leaves the working binary intact.</p>
     </div>
     <div class="safe-item">
-      <h4>It cannot flood your control plane</h4>
+      <h3>It cannot flood your control plane</h3>
       <p>A hard apiserver call budget lives in an <code>http.RoundTripper</code>, counting every request and retry. A diagnostic tool is run <em>during</em> an incident. Cluster-wide triage costs 10 calls whatever the cluster size — looping the per-workload diagnosis would have been ~1,700.</p>
     </div>
   </div>
@@ -584,17 +598,17 @@ findings   1 (1 critical)
     <h2>Install, connect, run</h2>
   </div>
   <div class="rv" style="display:grid;gap:14px">
-    <div class="code"><button class="copy" data-copy="go install github.com/backendArchitect/argus@latest">copy</button><span class="p">$</span> go install github.com/backendArchitect/argus@latest</div>
-    <div class="code"><button class="copy" data-copy="claude mcp add argus -- argus serve">copy</button><span class="p">$</span> claude mcp add argus -- argus serve</div>
+    <div class="code"><button class="copy" aria-live="polite" data-copy="go install github.com/backendArchitect/argus@latest">copy</button><span class="p">$</span> go install github.com/backendArchitect/argus@latest</div>
+    <div class="code"><button class="copy" aria-live="polite" data-copy="claude mcp add argus -- argus serve">copy</button><span class="p">$</span> claude mcp add argus -- argus serve</div>
     <p class="lede" style="margin:6px 0 0">
       Or drive it straight from a terminal, no MCP involved:
     </p>
-    <div class="code"><button class="copy" data-copy="argus diagnose checkout-api -n prod">copy</button><span class="p">$</span> argus diagnose checkout-api <span style="color:var(--fg-mute)">-n prod</span></div>
+    <div class="code"><button class="copy" aria-live="polite" data-copy="argus diagnose checkout-api -n prod">copy</button><span class="p">$</span> argus diagnose checkout-api <span style="color:var(--fg-mute)">-n prod</span></div>
     <p class="lede" style="margin:6px 0 0">
       And to update it later — checksum-verified, atomic, and it will not clobber a build you made
       from a clone:
     </p>
-    <div class="code"><button class="copy" data-copy="argus update">copy</button><span class="p">$</span> argus update <span style="color:var(--fg-mute)"># or: argus update -check</span></div>
+    <div class="code"><button class="copy" aria-live="polite" data-copy="argus update">copy</button><span class="p">$</span> argus update <span style="color:var(--fg-mute)"># or: argus update -check</span></div>
   </div>
 </section>
 
@@ -611,10 +625,11 @@ findings   1 (1 critical)
     <li><span class="pill pill-now">shipping</span><span><strong>explain_pending</strong> — why a pod will not schedule, with the arithmetic per node: what it asked for, what is free, and how much other pods already reserve. Names the constraints it does <em>not</em> evaluate</span></li>
     <li><span class="pill pill-now">shipping</span><span><strong>trace_service_path</strong> — the Service is up, the pods are Ready, and traffic still 503s. Walks Ingress&nbsp;→&nbsp;selector&nbsp;→&nbsp;targetPort&nbsp;→&nbsp;endpoints&nbsp;→&nbsp;readiness and names the <em>first</em> hop that breaks. Catches the silent one: a <code>targetPort</code> naming a port no container declares leaves the EndpointSlice with no port at all, so every connection is refused while <code>kubectl get</code> shows a healthy system</span></li>
     <li><span class="pill pill-later">not building</span><span><strong>informer cache</strong> — argued against rather than deferred. It buys nothing for the CLI, and for the server it trades the call budget for a staleness window: a 30-second-old pod state mid-rollout is worse than 13 live calls, because the answer is confidently wrong rather than slow</span></li>
-    <li><span class="pill pill-later">v0.3</span><span>GKE Cloud Logging fallback for evicted pods · <strong>compare_environments</strong> · <strong>check_reachability</strong> · in-cluster deployment with Workload Identity</span></li>
+    <li><span class="pill pill-next">v0.3</span><span>GKE Cloud Logging fallback for evicted pods · <strong>compare_environments</strong> · <strong>check_reachability</strong> · in-cluster deployment with Workload Identity</span></li>
     <li><span class="pill pill-later">maybe never</span><span>Mutations <em>against a cluster</em>. That is where the liability is; read-only diagnosis is where nearly all the value is. The one exception already shipped is <code>argus update</code>, which replaces argus's own binary against a published checksum and grants no cluster write access.</span></li>
   </ul>
 </section>
+</main>
 
 <footer>
   <div class="wrap foot-in">
@@ -638,11 +653,14 @@ findings   1 (1 critical)
 
   /* ---- theme ---- */
   var root = document.documentElement, btn = document.getElementById("theme");
-  try{ var saved = localStorage.getItem("argus-theme"); if(saved) root.setAttribute("data-theme", saved); }catch(e){}
+  // The label names the action, not the state, so a screen reader says what a press will do.
+  function label(){ btn.setAttribute("aria-label", "Switch to " + (root.getAttribute("data-theme") === "dark" ? "light" : "dark") + " theme"); }
+  label();
   btn.addEventListener("click", function(){
     var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
     root.setAttribute("data-theme", next);
     try{ localStorage.setItem("argus-theme", next); }catch(e){}
+    label();
   });
 
   /* ---- convergence spokes: twelve kinds feeding one core ---- */
@@ -693,7 +711,7 @@ findings   1 (1 critical)
 
   function onScroll(){
     var h = document.documentElement.scrollHeight - innerHeight;
-    bar.style.width = (h > 0 ? (scrollY / h) * 100 : 0) + "%";
+    bar.style.transform = "scaleX(" + (h > 0 ? scrollY / h : 0) + ")";
 
     // The section whose top has most recently passed a third of the viewport is the
     // one being read. Cheaper and steadier than an observer per section, and it does
@@ -844,15 +862,16 @@ findings   1 (1 critical)
   document.querySelectorAll(".copy").forEach(function(b){
     b.addEventListener("click", function(){
       var text = b.dataset.copy;
-      var done = function(){ var o = b.textContent; b.textContent = "copied"; setTimeout(function(){ b.textContent = o; }, 1400); };
-      if(navigator.clipboard && navigator.clipboard.writeText){
-        navigator.clipboard.writeText(text).then(done, done);
-      } else {
-        var ta = document.createElement("textarea");
+      var show = function(msg){ b.textContent = msg; setTimeout(function(){ b.textContent = "copy"; }, 1400); };
+      var legacy = function(){
+        var ta = document.createElement("textarea"), ok = false;
         ta.value = text; document.body.appendChild(ta); ta.select();
-        try{ document.execCommand("copy"); }catch(e){}
-        document.body.removeChild(ta); done();
-      }
+        try{ ok = document.execCommand("copy"); }catch(e){}
+        document.body.removeChild(ta); show(ok ? "copied" : "copy failed");
+      };
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(function(){ show("copied"); }, legacy);
+      } else { legacy(); }
     });
   });
 })();
