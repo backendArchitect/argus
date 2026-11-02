@@ -3,7 +3,7 @@ module github.com/backendArchitect/argus
 go 1.26.0
 
 require (
-	github.com/modelcontextprotocol/go-sdk v1.7.0
+	github.com/modelcontextprotocol/go-sdk v1.8.0
 	golang.org/x/sync v0.22.0
 	k8s.io/api v0.36.3
 	k8s.io/apimachinery v0.36.3
